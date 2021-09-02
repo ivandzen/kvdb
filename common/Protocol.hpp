@@ -56,15 +56,20 @@ struct ResultMessage
 {
    enum Code
    {
-      Success = 0,
-      InsertFailed = 1,
-      UpdateFailed = 2,
-      DeleteFailed = 3,
-      GetFailed = 4
+      UnknownCommand        = 0,
+      WrongCommandFormat    = 1,
+      InsertSuccess         = 2,
+      InsertFailed          = 3,
+      UpdateSuccess         = 4,
+      UpdateFailed          = 5,
+      GetSuccess            = 6,
+      GetFailed             = 7,
+      DeleteSuccess         = 8,
+      DeleteFailed          = 9,
    };
 
    Code        code;
-   std::string data;
+   std::string value;
 };
 
 }
@@ -81,5 +86,5 @@ BOOST_FUSION_ADAPT_STRUCT
 (
       kvdb::ResultMessage,
       (kvdb::ResultMessage::Code, code)
-      (std::string, data)
+      (std::string, value)
 )
