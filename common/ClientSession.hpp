@@ -17,7 +17,7 @@ struct ClientSessionContext
     using ConnectCallback = std::function<void(bool)>;
 
     boost::asio::io_context&    m_ioContext;
-    Logger&                     m_logger;
+    Logger::Ptr                 m_logger;
     ConnectCallback             m_callback;
     std::string                 m_hostname;
     int                         m_port;

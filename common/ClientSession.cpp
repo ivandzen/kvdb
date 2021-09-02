@@ -14,7 +14,7 @@ void ClientSession::Connect()
 {
     if (m_socket.is_open())
     {
-        m_logger.LogRecord("Already connected");
+        m_logger->LogRecord("Already connected");
         return;
     }
 
@@ -40,7 +40,7 @@ void ClientSession::onEPResolved(const boost::system::error_code& ec,
 {
     if (ec)
     {
-        m_logger.LogRecord(ec.message());
+        m_logger->LogRecord(ec.message());
         m_callback(false);
         return;
     }
@@ -59,7 +59,7 @@ void ClientSession::onSocketConnected(const boost::system::error_code& ec)
 {
     if (!ec)
     {
-        m_logger.LogRecord(ec.message());
+        m_logger->LogRecord(ec.message());
         m_callback(false);
         return;
     }

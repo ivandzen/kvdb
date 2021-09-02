@@ -52,6 +52,8 @@ CommandProcessor::CommandProcessor(const CommandProcessorContext& context)
                                      ResultMessage::DeleteFailed,
                                      PerfCounter("DELETE Failed")
                                  });
+
+    scheduleNextPerfornamceReport();
 }
 
 void CommandProcessor::ProcessCommand(const CommandMessage& command,
@@ -145,9 +147,14 @@ void CommandProcessor::scheduleNextPerfornamceReport()
     m_reportTimer.expires_from_now(boost::posix_time::seconds(m_reportIntervalSec));
     m_reportTimer.async_wait([weakSelf](const boost::system::error_code& ec)
     {
+        // timer events and ProcessCommand calls can occur on a different threads
         if (const auto self = weakSelf.lock())
         {
-            self->onReportTimerElapsed(ec);
+            // guard shared data by executing logic in the strand
+            self->m_strand.post([self, ec]()
+            {
+                self->onReportTimerElapsed(ec);
+            });
         }
     });
 }

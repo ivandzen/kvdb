@@ -24,6 +24,7 @@ class CommandProcessor
 {
 public:
     using ResultCallback = std::function<void(const ResultMessage& result)>;
+    using Ptr = std::shared_ptr<CommandProcessor>;
 
     explicit CommandProcessor(const CommandProcessorContext& context);
 

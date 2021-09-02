@@ -16,7 +16,7 @@ struct MessageSenderContext
 {
     boost::asio::io_context::strand m_strand; ///< allows execution of socket callbacks and public methods from different threads
     boost::asio::ip::tcp::socket&   m_socket; ///< reference to socket used to transmit data
-    Logger&                         m_logger; ///< reference to logger
+    Logger::Ptr                     m_logger; ///< pointer to logger
 };
 
 template<typename MessageType>
@@ -94,7 +94,7 @@ private:
     {
         if (ec)
         {
-            m_logger.LogRecord(ec.message());
+            m_logger->LogRecord(ec.message());
             m_currentMessage.reset();
             trySendNextMessage();
             return;
@@ -119,7 +119,7 @@ private:
     {
         if (ec)
         {
-            m_logger.LogRecord(ec.message());
+            m_logger->LogRecord(ec.message());
             m_currentMessage.reset();
             trySendNextMessage();
             return;
