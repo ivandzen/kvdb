@@ -3,14 +3,19 @@
 #include <string>
 #include <memory>
 
+#include <boost/fusion/sequence/io.hpp>
+#include <boost/fusion/include/io.hpp>
 #include <boost/fusion/adapted.hpp>
 
 namespace kvdb
 {
 
+using boost::fusion::operators::operator>>; // for input
+using boost::fusion::operators::operator<<; // for output
+
 struct MessageHeader
 {
-    using Ptr = std::unique_ptr<MessageHeader>;
+    using Ptr = std::shared_ptr<MessageHeader>;
 
     static const uint32_t       scMagicInt = 0x0A0B0C0D;
 
@@ -46,7 +51,14 @@ struct CommandMessage
       GET
    };
 
-   Type         type;
+   bool operator==(const CommandMessage& other) const
+   {
+       return type == other.type
+               && key == other.key
+               && value == other.value;
+   }
+
+   uint8_t      type;
    std::string  key;
    std::string  value;
 };
@@ -77,7 +89,7 @@ struct ResultMessage
 BOOST_FUSION_ADAPT_STRUCT
 (
       kvdb::CommandMessage,
-      (kvdb::CommandMessage::Type, type)
+      (uint8_t, type)
       (std::string, key)
       (std::string, value)
 )
