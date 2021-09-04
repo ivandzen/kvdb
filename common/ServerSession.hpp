@@ -14,12 +14,20 @@
 namespace kvdb
 {
 
+class ServerSession;
+using ServerSessionPtr = std::shared_ptr<ServerSession>;
+
 struct ServerSessionContext
 {
+    using InitCallback = std::function<void(const ServerSessionPtr&)>;
+    using CloseCallback = std::function<void(const ServerSessionPtr&)>;
+
     boost::asio::io_context&        m_ioContext;
     boost::asio::ip::tcp::acceptor& m_acceptor;
     CommandProcessor::Ptr           m_processor;
     Logger::Ptr                     m_logger;
+    InitCallback                    m_initCallback;
+    CloseCallback                   m_closeCallback;
 };
 
 class ServerSession
@@ -29,19 +37,17 @@ class ServerSession
 public:
     using Ptr = std::shared_ptr<ServerSession>;
 
-    using InitCallback = std::function<void(const Ptr&)>;
-
     explicit ServerSession(const ServerSessionContext& context);
 
-    static void StartAccept(const ServerSessionContext& context,
-                            const InitCallback& initCallback);
+    static void Init(const ServerSessionContext& context);
 
 private:
+    using WeakSelf = std::weak_ptr<ServerSession>;
     using Sender = MessageSender<ResultMessage>;
     using Receiver = MessageReceiver<CommandMessage>;
 
-    void onConnectionAccepted(const boost::system::error_code& error,
-                              const InitCallback& initCallback);
+    void onConnectionAccepted(const boost::system::error_code& error);
+    void onCommandReceived(const CommandMessage& command);
 
     boost::asio::ip::tcp::socket    m_socket;
     Sender::Ptr                     m_sender;

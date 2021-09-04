@@ -6,7 +6,7 @@
 #include <boost/asio.hpp>
 #include <boost/system/system_error.hpp>
 
-#include "Protocol.hpp"
+//#include "Protocol.hpp"
 #include "Logger.hpp"
 
 namespace kvdb
@@ -15,12 +15,14 @@ namespace kvdb
 template<typename MessageType>
 struct MessageReceiverContext
 {
+    using CloseCallback = std::function<void(void)>;
     using MessageCallback = std::function<void(const MessageType& message)>;
 
     boost::asio::io_context&        m_ioContext;
     boost::asio::ip::tcp::socket&   m_socket;
     Logger::Ptr                     m_logger;
-    MessageCallback                 m_callback;
+    MessageCallback                 m_msgCallback;
+    CloseCallback                   m_closeCallback;
     uint32_t                        m_dataToutMs = 1000; // will wait for data after header maximum 1 second
 };
 
@@ -44,26 +46,32 @@ public:
 private:
     /// @brief private type alaises
     using WeakSelf = std::weak_ptr<MessageReceiver<MessageType>>;
-    using HeaderPtr = std::unique_ptr<MessageHeader>;
-    using BufPtr = std::unique_ptr<boost::asio::streambuf>;
+    using BufPtr = std::shared_ptr<boost::asio::streambuf>;
 
     void startReceive()
     {
-        auto headerPtr = std::make_unique<MessageHeader>();
+        auto headerPtr = std::make_shared<MessageHeader>();
         const WeakSelf weakSelf = this->shared_from_this();
         boost::asio::async_read(this->m_socket, boost::asio::mutable_buffer(headerPtr.get(), scMessageHeaderSize),
-                                [weakSelf, hp = move(headerPtr)](const boost::system::error_code& ec, std::size_t)
+                                [weakSelf, headerPtr](const boost::system::error_code& ec, std::size_t)
         {
             if (const auto self = weakSelf.lock())
             {
-                self->onHeaderReceived(ec, move(hp));
+                self->onHeaderReceived(ec, headerPtr);
             }
         });
     }
 
-    void onHeaderReceived(const boost::system::error_code& ec, const HeaderPtr&& headerPtr)
+    void onHeaderReceived(const boost::system::error_code& ec, const MessageHeader::Ptr& headerPtr)
     {
-        if (ec)
+        // connection may be closed
+        if (ec == boost::asio::error::eof || ec == boost::asio::error::broken_pipe)
+        {
+            this->m_logger->LogRecord("Connection closed");
+            this->m_closeCallback();
+            return;
+        }
+        else if (ec)
         {
             this->m_logger->LogRecord(ec.message());
             startReceive();
@@ -77,14 +85,14 @@ private:
             return;
         }
 
-        auto sbuf = std::make_unique<boost::asio::streambuf>(headerPtr->m_msgSize);
+        auto sbuf = std::make_shared<boost::asio::streambuf>(headerPtr->m_msgSize);
         const WeakSelf weakSelf = this->shared_from_this();
         boost::asio::async_read(this->m_socket, *sbuf, boost::asio::transfer_at_least(headerPtr->m_msgSize),
-                                [weakSelf, sb = move(sbuf)](const boost::system::error_code& ec, std::size_t)
+                                [weakSelf, sbuf](const boost::system::error_code& ec, std::size_t)
         {
             if (const auto self = weakSelf.lock())
             {
-                self->onDataReceived(ec, move(sb));
+                self->onDataReceived(ec, sbuf);
             }
         });
 
@@ -94,6 +102,7 @@ private:
         {
             if (const auto self = weakSelf.lock())
             {
+                // this callback do not touch unprotected shared data so no need to execute on strand
                 self->onTimerEvent(ec);
             }
         });
@@ -104,6 +113,7 @@ private:
         if (!ec)
         {
             // timeout occured - protocol violation, abort all operations on socket
+            this->m_logger->LogRecord("Read header - timeout occured");
             this->m_socket.cancel();
             return;
         }
@@ -114,18 +124,31 @@ private:
             return;
         }
 
-        this->m_logger->LogRecord("Unexpected error occured in deadline_timer");
+        this->m_logger->LogRecord(std::string("Unexpected error occured in deadline_timer : ")
+                                  + ec.message());
     }
 
-    void onDataReceived(const boost::system::error_code& ec, const BufPtr&& sbuf)
+    void onDataReceived(const boost::system::error_code& ec, const BufPtr& sbuf)
     {
         // cancel waiting for timeout
         m_timer.cancel();
 
-        if (ec)
+        // connection may be closed
+        if (ec == boost::asio::error::eof || ec == boost::asio::error::broken_pipe)
         {
-            // error occured when receiving data - try to receive next message
-            this->m_logger->LogRecord(ec.message());
+            this->m_logger->LogRecord("Connection closed");
+            this->m_closeCallback();
+            return;
+        }
+        else if (ec == boost::asio::error::operation_aborted)
+        {
+            // Timeout occured when receiving header. Start receive again
+            startReceive();
+            return;
+        }
+        else
+        {
+            this->m_logger->LogRecord(std::string("Unexpected error occured : ") + ec.message());
             startReceive();
             return;
         }
@@ -133,20 +156,16 @@ private:
         // data successfully received
         std::istream is(sbuf.get());
         MessageType msg;
-
-        throw std::runtime_error(std::string(__FILE__) + " : " + std::to_string(__LINE__));
-
-        /// @todo
-        //if (!Deserialize(is, msg))
-        //{
-        //    this->m_logger->LogRecord("Failed to deserialize message");
-        //}
-        //else
-        //{
-        //    m_callback(msg);
-        //}
+        is >> msg;
+        this->m_msgCallback(msg);
 
         startReceive();
+    }
+
+    bool deserialize(std::istream& stream, MessageType& message)
+    {
+        throw std::runtime_error(std::string(__FILE__) + " : " + std::to_string(__LINE__));
+        return true;
     }
 
     boost::asio::deadline_timer     m_timer;

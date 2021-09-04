@@ -1,3 +1,5 @@
+#include <functional>
+
 #include <boost/format.hpp>
 
 #include "ServerSession.hpp"
@@ -10,26 +12,20 @@ ServerSession::ServerSession(const ServerSessionContext& context)
     , m_socket(context.m_ioContext)
 {}
 
-void ServerSession::StartAccept(const ServerSessionContext& context,
-                                const InitCallback& initCallback)
+void ServerSession::Init(const ServerSessionContext& context)
 {
     auto newSession = std::make_shared<ServerSession>(context);
-
-
-
-    newSession->m_acceptor.async_accept(newSession->m_socket, [newSession, initCallback](const boost::system::error_code& error)
+    newSession->m_acceptor.async_accept(newSession->m_socket, [newSession](const boost::system::error_code& error)
     {
-        newSession->onConnectionAccepted(error, initCallback);
+        newSession->onConnectionAccepted(error);
     });
 }
 
-void ServerSession::onConnectionAccepted(const boost::system::error_code& error,
-                                         const InitCallback& initCallback)
+void ServerSession::onConnectionAccepted(const boost::system::error_code& error)
 {
     if (error)
     {
         m_logger->LogRecord((boost::format("Failed to accept new connection : %1%") % error).str());
-        initCallback(nullptr);
         return;
     }
 
@@ -41,24 +37,30 @@ void ServerSession::onConnectionAccepted(const boost::system::error_code& error,
                    });
 
     const auto self = shared_from_this();
-    const auto onMessage = [self](const CommandMessage& message)
-    {
-        self->m_processor->ProcessCommand(message, [self](const ResultMessage& result)
-        {
-            self->m_sender->SendMessage(result);
-        });
-    };
 
+    // creating command receiver.
+    // receiving will start immediately
     m_receiver = std::make_shared<Receiver>(
                      Receiver::Context {
                          m_ioContext,
                          m_socket,
                          m_logger,
-                         onMessage,
+                         // on command received callback
+                         std::bind(&ServerSession::onCommandReceived, self, std::placeholders::_1),
+                         // on connection closed callback
+                         [self](){ self->m_closeCallback(self); },
                          1000 // receiver data timeout
                      });
 
-    initCallback(shared_from_this());
+    m_initCallback(self);
+}
+
+void ServerSession::onCommandReceived(const CommandMessage& command)
+{
+    m_processor->ProcessCommand(command,
+                                std::bind(&Sender::SendMessage,
+                                          m_sender,
+                                          std::placeholders::_1));
 }
 
 } // namespace kvdb
