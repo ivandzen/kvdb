@@ -50,7 +50,7 @@ private:
         }
     };
 
-    void scheduleNextPerfornamceReport();
+    void scheduleNextPerformanceReport();
 
     void onReportTimerElapsed(const boost::system::error_code& ec);
 

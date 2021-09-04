@@ -53,7 +53,7 @@ CommandProcessor::CommandProcessor(const CommandProcessorContext& context)
                                      PerfCounter("DELETE Failed")
                                  });
 
-    scheduleNextPerfornamceReport();
+    scheduleNextPerformanceReport();
 }
 
 void CommandProcessor::ProcessCommand(const CommandMessage& command,
@@ -141,7 +141,7 @@ void CommandProcessor::processCommandImpl(const CommandMessage& command,
     callback(result);
 }
 
-void CommandProcessor::scheduleNextPerfornamceReport()
+void CommandProcessor::scheduleNextPerformanceReport()
 {
     const WeakSelf weakSelf = shared_from_this();
     m_reportTimer.expires_from_now(boost::posix_time::seconds(m_reportIntervalSec));
@@ -168,7 +168,7 @@ void CommandProcessor::onReportTimerElapsed(const boost::system::error_code& ec)
     else
     {
         reportPerformance();
-        scheduleNextPerfornamceReport();
+        scheduleNextPerformanceReport();
     }
 }
 
