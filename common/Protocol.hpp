@@ -3,15 +3,8 @@
 #include <string>
 #include <memory>
 
-#include <boost/fusion/sequence/io.hpp>
-#include <boost/fusion/include/io.hpp>
-#include <boost/fusion/adapted.hpp>
-
 namespace kvdb
 {
-
-using boost::fusion::operators::operator>>; // for input
-using boost::fusion::operators::operator<<; // for output
 
 struct MessageHeader
 {
@@ -45,6 +38,7 @@ struct CommandMessage
 {
    enum Type
    {
+      UNKNOWN,
       INSERT,
       UPDATE,
       DELETE,
@@ -58,7 +52,7 @@ struct CommandMessage
                && value == other.value;
    }
 
-   uint8_t      type;
+   uint8_t      type = UNKNOWN;
    std::string  key;
    std::string  value;
 };
@@ -80,23 +74,8 @@ struct ResultMessage
       DeleteFailed          = 9,
    };
 
-   Code        code;
+   uint8_t     code;
    std::string value;
 };
 
 }
-
-BOOST_FUSION_ADAPT_STRUCT
-(
-      kvdb::CommandMessage,
-      (uint8_t, type)
-      (std::string, key)
-      (std::string, value)
-)
-
-BOOST_FUSION_ADAPT_STRUCT
-(
-      kvdb::ResultMessage,
-      (kvdb::ResultMessage::Code, code)
-      (std::string, value)
-)

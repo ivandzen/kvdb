@@ -6,8 +6,8 @@
 #include <boost/asio.hpp>
 #include <boost/system/system_error.hpp>
 
-//#include "Protocol.hpp"
 #include "Logger.hpp"
+#include "Serialization.hpp"
 
 namespace kvdb
 {
@@ -156,8 +156,15 @@ private:
         // data successfully received
         std::istream is(sbuf.get());
         MessageType msg;
-        is >> msg;
-        this->m_msgCallback(msg);
+        try
+        {
+            Deserialize(is, msg);
+            this->m_msgCallback(msg);
+        }
+        catch (std::runtime_error& err)
+        {
+            this->m_logger->LogRecord(err.what());
+        }
 
         startReceive();
     }

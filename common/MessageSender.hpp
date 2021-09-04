@@ -36,14 +36,7 @@ public:
     {
         BufPtr streambuf = std::make_shared<boost::asio::streambuf>();
         std::ostream os(streambuf.get());
-
-        /// @todo
-        // if (!Serialize(msg, os))
-        // {
-        //     m_logger.LogRecord("Failed to serialize message");
-        //     return false;
-        // }
-        throw std::runtime_error(std::string(__FILE__) + " : " + std::to_string(__LINE__));
+        Serialize(msg, os);
 
         const auto self = this->shared_from_this();
         m_strand.post([self, streambuf]()

@@ -56,9 +56,9 @@ private:
 
     void reportPerformance();
 
-    boost::asio::io_context::strand             m_strand;
-    boost::asio::deadline_timer                 m_reportTimer;
-    std::map<ResultMessage::Code, PerfCounter>  m_performanceCounters;
+    boost::asio::io_context::strand m_strand;
+    boost::asio::deadline_timer     m_reportTimer;
+    std::map<uint8_t, PerfCounter>  m_performanceCounters;
 };
 
 }
