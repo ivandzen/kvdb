@@ -18,6 +18,13 @@ class PersistableMap
 {
 public:
     using Ptr = std::shared_ptr<PersistableMap>;
+    using SegmentManager = boost::interprocess::managed_mapped_file::segment_manager;
+
+    struct Stat
+    {
+        SegmentManager::size_type m_size;
+        SegmentManager::size_type m_free;
+    };
 
     PersistableMap(const char* filePath);
 
@@ -31,9 +38,18 @@ public:
 
     bool Delete(const std::string& key);
 
+    Stat GetStat()
+    {
+        return Stat
+        {
+            m_mappedFile->get_segment_manager()->get_size(),
+            m_mappedFile->get_segment_manager()->get_free_memory()
+        };
+    }
+
 private:
     template<typename Type>
-    using Allocator = boost::interprocess::allocator<Type, boost::interprocess::managed_mapped_file::segment_manager>;
+    using Allocator = boost::interprocess::allocator<Type, SegmentManager>;
 
     using AllocatorPtr = std::unique_ptr<Allocator<void>>;
     using MappedFile = boost::interprocess::managed_mapped_file;
