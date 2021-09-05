@@ -14,8 +14,8 @@ BOOST_FUSION_ADAPT_STRUCT
 (
       kvdb::CommandMessage,
       (uint8_t, type)
-      (std::string, key)
-      (std::string, value)
+      (kvdb::LimitedString, key)
+      (kvdb::LimitedString, value)
 )
 
 BOOST_FUSION_ADAPT_STRUCT
@@ -31,49 +31,61 @@ namespace kvdb
 using boost::fusion::operators::operator>>; // for input
 using boost::fusion::operators::operator<<; // for output
 
+/// Default imlementations uses standard <<, >> operators
+
 template<typename T>
-void Serialize(const T& data, std::ostream& ostream)
+inline void Serialize(const T& data, std::ostream& ostream)
 {
     ostream << data;
 }
 
-template<>
-void Serialize<std::string>(const std::string& str, std::ostream& ostream)
-{
-    ostream << str.size();  // number of bytes first
-    ostream << ' ';         // then space
-    ostream << str;         // then characters itself
-}
-
 template<typename T>
-void Deserialize(std::istream& istream, T& data)
+inline void Deserialize(std::istream& istream, T& data)
 {
     istream >> data;
 }
 
+/// Specialized Serialize|Deserialize functions for std::string are needed because
+/// default implementation of stream opeartors (<<, >>) are pretty simple
+/// and can not correctly serialize-deserialize wide range of strings with spaces,
+/// special symbols, etc.
+
+/// Special implementation that prepends string data with total length of the string
 template<>
-void Deserialize<std::string>(std::istream& istream, std::string& str)
+inline void Serialize<LimitedString>(const LimitedString& str, std::ostream& ostream)
+{
+    ostream << str.Get().size();  // number of bytes first
+    ostream << ' ';               // then space
+    ostream << str.Get();         // then characters itself
+}
+
+template<>
+inline void Deserialize<LimitedString>(std::istream& istream, LimitedString& str)
 {
     uint32_t size = 0;
     istream >> size;    // read size of string
+
+    // try to find space next
     char space;
     istream.read(&space, 1);
 
-    // protocol violation - it must be space after string size
     if (space != ' ')
     {
+        // protocol violation - it must be space after string size
         throw std::runtime_error("Failed to parse string");
     }
 
-    if (size)
+    if (size && size <= str.MaxSize())
     {
-        str.resize(size);
-        istream.read(str.data(), size);
+        std::string buffer;
+        buffer.resize(size);
+        istream.read(buffer.data(), size);
+        str.Set(buffer);
     }
 }
 
 template<>
-void Serialize<CommandMessage>(const CommandMessage& msg, std::ostream& ostream)
+inline void Serialize<CommandMessage>(const CommandMessage& msg, std::ostream& ostream)
 {
     boost::fusion::for_each(msg, [&ostream](const auto& data)
     {
@@ -83,19 +95,22 @@ void Serialize<CommandMessage>(const CommandMessage& msg, std::ostream& ostream)
 }
 
 template<>
-void Deserialize<CommandMessage>(std::istream& istream, CommandMessage& msg)
+inline void Deserialize<CommandMessage>(std::istream& istream, CommandMessage& msg)
 {
     boost::fusion::for_each(msg, [&istream](auto& data)
     {
         Deserialize(istream, data);
+
+        // try to find space after previously parsed element
         char space;
         istream.read(&space, 1);
 
         if (space != ' ')
         {
+            // protocol violation
             throw std::runtime_error("Failed to parse CommandMessage");
         }
     });
 }
 
-}
+}// namespace kvdb

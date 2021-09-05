@@ -31,27 +31,23 @@ void ServerSession::onConnectionAccepted(const boost::system::error_code& error)
 
     m_sender = std::make_shared<Sender>(
                    MessageSenderContext {
-                       boost::asio::io_context::strand(m_ioContext),
+                       m_ioContext,
                        m_socket,
                        m_logger
                    });
 
     const auto self = shared_from_this();
-
-    // creating command receiver.
-    // receiving will start immediately
     m_receiver = std::make_shared<Receiver>(
                      Receiver::Context {
                          m_ioContext,
                          m_socket,
                          m_logger,
-                         // on command received callback
                          std::bind(&ServerSession::onCommandReceived, self, std::placeholders::_1),
-                         // on connection closed callback
                          [self](){ self->m_closeCallback(self); },
-                         1000 // receiver data timeout
+                         scReceiveDataTOutMs
                      });
 
+    m_receiver->Start();
     m_initCallback(self);
 }
 

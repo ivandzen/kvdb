@@ -57,23 +57,44 @@ void ClientSession::onEPResolved(const boost::system::error_code& ec,
 
 void ClientSession::onSocketConnected(const boost::system::error_code& ec)
 {
-    if (!ec)
+    if (ec)
     {
         m_logger->LogRecord(ec.message());
         m_callback(false);
         return;
     }
 
-    MessageSenderContext msContext
-    {
-        boost::asio::io_context::strand(m_ioContext),
-        m_socket,
-        m_logger
-    };
+    m_sender = std::make_shared<Sender>(
+                   MessageSenderContext {
+                       m_ioContext,
+                       m_socket,
+                       m_logger
+                   });
 
-    m_sender = std::make_shared<MessageSender<CommandMessage>>(msContext);
+    const auto self = shared_from_this();
+    m_receiver = std::make_shared<Receiver>(
+                     Receiver::Context {
+                         m_ioContext,
+                         m_socket,
+                         m_logger,
+                         std::bind(&ClientSession::onResultReceived, self, std::placeholders::_1),
+                         std::bind(&ClientSession::onConnectionClosed, self),
+                         scReceiveDataTOutMs
+                     });
+
+    m_receiver->Start();
     m_callback(true);
     return;
+}
+
+void ClientSession::onResultReceived(const ResultMessage& result)
+{
+
+}
+
+void ClientSession::onConnectionClosed()
+{
+
 }
 
 }// namespace kvdb

@@ -72,17 +72,20 @@ void CommandProcessor::processCommandImpl(const CommandMessage& command,
     ResultMessage result;
     ResultMessage::Code code;
 
+    const auto& key = command.key.Get();
+    const auto& value = command.value.Get();
+
     switch (command.type)
     {
     case CommandMessage::INSERT:
     {
-        if (command.key.empty() || command.value.empty())
+        if (key.empty() || value.empty())
         {
             code = ResultMessage::WrongCommandFormat;
             break;
         }
 
-        code = m_mapInstance->Insert(command.key, command.value)
+        code = m_mapInstance->Insert(key, value)
                ? ResultMessage::InsertSuccess
                : ResultMessage::InsertFailed;
         break;
@@ -90,13 +93,13 @@ void CommandProcessor::processCommandImpl(const CommandMessage& command,
 
     case CommandMessage::UPDATE:
     {
-        if (command.key.empty() || command.value.empty())
+        if (key.empty() || value.empty())
         {
             code = ResultMessage::WrongCommandFormat;
             break;
         }
 
-        code = m_mapInstance->Update(command.key, command.value)
+        code = m_mapInstance->Update(key, value)
                ? ResultMessage::UpdateSuccess
                : ResultMessage::UpdateFailed;
         break;
@@ -104,13 +107,13 @@ void CommandProcessor::processCommandImpl(const CommandMessage& command,
 
     case CommandMessage::GET:
     {
-        if (command.key.empty() || !command.value.empty())
+        if (key.empty() || !value.empty())
         {
             code = ResultMessage::WrongCommandFormat;
             break;
         }
 
-        code = m_mapInstance->Get(command.key, result.value)
+        code = m_mapInstance->Get(key, result.value)
                ? ResultMessage::GetSuccess
                : ResultMessage::GetFailed;
         break;
@@ -118,13 +121,13 @@ void CommandProcessor::processCommandImpl(const CommandMessage& command,
 
     case CommandMessage::DELETE:
     {
-        if (command.key.empty() || !command.value.empty())
+        if (key.empty() || !value.empty())
         {
             code = ResultMessage::WrongCommandFormat;
             break;
         }
 
-        code = m_mapInstance->Delete(command.key)
+        code = m_mapInstance->Delete(key)
                ? ResultMessage::DeleteSuccess
                : ResultMessage::DeleteFailed;
         break;

@@ -1,3 +1,5 @@
+#pragma once
+
 #include <memory>
 #include <sstream>
 #include <deque>
@@ -14,7 +16,7 @@ namespace kvdb
 
 struct MessageSenderContext
 {
-    boost::asio::io_context::strand m_strand; ///< allows execution of socket callbacks and public methods from different threads
+    boost::asio::io_context&        m_ioContext;
     boost::asio::ip::tcp::socket&   m_socket; ///< reference to socket used to transmit data
     Logger::Ptr                     m_logger; ///< pointer to logger
 };
@@ -30,6 +32,7 @@ public:
 
     explicit MessageSender(const MessageSenderContext& context)
         : MessageSenderContext(context)
+        , m_strand(context.m_ioContext)
     {}
 
     void SendMessage(const MessageType& msg)
@@ -69,7 +72,7 @@ private:
         const WeakSelf weakPtr = this->shared_from_this();
         boost::asio::async_write(m_socket,
                                  boost::asio::const_buffer(headerPtr.get(), scMessageHeaderSize),
-                                 boost::asio::transfer_at_least(scMessageHeaderSize),
+                                 boost::asio::transfer_exactly(scMessageHeaderSize),
                                  // pass headerPtr to ensure it will exist until write operation completed
                                  [weakPtr, headerPtr](const boost::system::error_code& ec, std::size_t)
         {
@@ -122,6 +125,7 @@ private:
         trySendNextMessage();
     }
 
+    boost::asio::io_context::strand m_strand; ///< allows execution of socket callbacks and public methods from different threads
     std::deque<BufPtr>              m_messageQueue;
     BufPtr                          m_currentMessage;
 };

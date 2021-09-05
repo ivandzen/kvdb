@@ -14,9 +14,10 @@ namespace kvdb
 
 struct ServerContext
 {
-    boost::asio::io_context&    m_ioContext;
-    CommandProcessor::Ptr       m_processor;
-    Logger::Ptr                 m_logger;
+    boost::asio::io_context&        m_ioContext;
+    CommandProcessor::Ptr           m_processor;
+    Logger::Ptr                     m_logger;
+    boost::asio::ip::tcp::endpoint  m_endpoint; // endpoint to listen to
 };
 
 static const uint32_t scMaxConnections = 100;

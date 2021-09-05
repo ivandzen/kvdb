@@ -31,7 +31,56 @@ struct MessageHeader
     uint32_t    m_msgSize = 0;
 };
 
+static const uint32_t scReceiveDataTOutMs = 1000;
 static const std::size_t scMessageHeaderSize = sizeof(MessageHeader);
+
+class LimitedString
+{
+public:
+    LimitedString(const std::size_t maxSize,
+                  const std::string& str)
+        : m_maxSize(maxSize)
+    {
+        Set(str);
+    }
+
+    void Set(const std::string& str, bool nocheck = false)
+    {
+        if (!nocheck)
+        {
+            checkString(str);
+        }
+        m_content = str;
+    }
+
+    const std::string& Get() const
+    {
+        return m_content;
+    }
+
+    std::size_t MaxSize() const
+    {
+        return m_maxSize;
+    }
+
+    bool operator==(const LimitedString& other) const
+    {
+        return m_maxSize == other.m_maxSize
+                && m_content == other.m_content;
+    }
+
+private:
+    void checkString(const std::string& str) const
+    {
+        if (str.size() > m_maxSize)
+        {
+            throw std::runtime_error("LimitedString size overflow");
+        }
+    }
+
+    std::size_t m_maxSize;
+    std::string m_content;
+};
 
 /// @brief Generalized command
 struct CommandMessage
@@ -45,6 +94,17 @@ struct CommandMessage
       GET
    };
 
+   static const std::size_t scMaxKeySize = 1024;
+   static const std::size_t scMaxValueSize = 1024 * 1024;
+
+   CommandMessage(const uint8_t type = 0,
+                  const std::string& key = std::string(),
+                  const std::string& value = std::string())
+       : type(type)
+       , key(scMaxKeySize, key)
+       , value(scMaxValueSize, value)
+   {}
+
    bool operator==(const CommandMessage& other) const
    {
        return type == other.type
@@ -52,9 +112,9 @@ struct CommandMessage
                && value == other.value;
    }
 
-   uint8_t      type = UNKNOWN;
-   std::string  key;
-   std::string  value;
+   uint8_t          type = UNKNOWN;
+   LimitedString    key;
+   LimitedString    value;
 };
 
 /// @brief Command execution result
@@ -74,8 +134,8 @@ struct ResultMessage
       DeleteFailed          = 9,
    };
 
-   uint8_t     code;
-   std::string value;
+   uint8_t      code;
+   std::string  value;
 };
 
 }

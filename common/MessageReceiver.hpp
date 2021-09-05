@@ -40,6 +40,10 @@ public:
         : Context(context)
         , m_timer(context.m_ioContext)
     {
+    }
+
+    void Start()
+    {
         startReceive();
     }
 
@@ -52,7 +56,8 @@ private:
     {
         auto headerPtr = std::make_shared<MessageHeader>();
         const WeakSelf weakSelf = this->shared_from_this();
-        boost::asio::async_read(this->m_socket, boost::asio::mutable_buffer(headerPtr.get(), scMessageHeaderSize),
+        boost::asio::async_read(this->m_socket, // socket
+                                boost::asio::mutable_buffer(headerPtr.get(), scMessageHeaderSize),
                                 [weakSelf, headerPtr](const boost::system::error_code& ec, std::size_t)
         {
             if (const auto self = weakSelf.lock())
@@ -87,7 +92,8 @@ private:
 
         auto sbuf = std::make_shared<boost::asio::streambuf>(headerPtr->m_msgSize);
         const WeakSelf weakSelf = this->shared_from_this();
-        boost::asio::async_read(this->m_socket, *sbuf, boost::asio::transfer_at_least(headerPtr->m_msgSize),
+        boost::asio::async_read(this->m_socket, *sbuf,
+                                boost::asio::transfer_exactly(headerPtr->m_msgSize),
                                 [weakSelf, sbuf](const boost::system::error_code& ec, std::size_t)
         {
             if (const auto self = weakSelf.lock())

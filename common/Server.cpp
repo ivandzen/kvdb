@@ -10,6 +10,7 @@ Server::Server(const ServerContext& context)
     , m_acceptor(context.m_ioContext)
     , m_strand(context.m_ioContext)
 {
+    m_acceptor.bind(m_endpoint);
     m_acceptor.listen(scMaxConnections);
 }
 
