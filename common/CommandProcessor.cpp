@@ -14,7 +14,7 @@ CommandProcessor::CommandProcessor(const CommandProcessorContext& context)
 {
     m_performanceCounters.insert({
                                      ResultMessage::UnknownCommand,
-                                     PerfCounter("Number of unknown commands")
+                                     PerfCounter("Number of unknown commands\t")
                                  });
     m_performanceCounters.insert({
                                      ResultMessage::WrongCommandFormat,
@@ -22,38 +22,36 @@ CommandProcessor::CommandProcessor(const CommandProcessorContext& context)
                                  });
     m_performanceCounters.insert({
                                      ResultMessage::InsertSuccess,
-                                     PerfCounter("INSERT Ok")
+                                     PerfCounter("INSERT Ok\t")
                                  });
     m_performanceCounters.insert({
                                      ResultMessage::InsertFailed,
-                                     PerfCounter("INSERT Failed")
+                                     PerfCounter("INSERT Failed\t")
                                  });
     m_performanceCounters.insert({
                                      ResultMessage::UpdateSuccess,
-                                     PerfCounter("UPDATE Ok")
+                                     PerfCounter("UPDATE Ok\t")
                                  });
     m_performanceCounters.insert({
                                      ResultMessage::UpdateFailed,
-                                     PerfCounter("UPDATE Failed")
+                                     PerfCounter("UPDATE Failed\t")
                                  });
     m_performanceCounters.insert({
                                      ResultMessage::GetSuccess,
-                                     PerfCounter("GET Ok")
+                                     PerfCounter("GET Ok\t\t")
                                  });
     m_performanceCounters.insert({
                                      ResultMessage::GetFailed,
-                                     PerfCounter("GET Failed")
+                                     PerfCounter("GET Failed\t")
                                  });
     m_performanceCounters.insert({
                                      ResultMessage::DeleteSuccess,
-                                     PerfCounter("DELETE Ok")
+                                     PerfCounter("DELETE Ok\t")
                                  });
     m_performanceCounters.insert({
                                      ResultMessage::DeleteFailed,
-                                     PerfCounter("DELETE Failed")
+                                     PerfCounter("DELETE Failed\t")
                                  });
-
-    scheduleNextPerformanceReport();
 }
 
 void CommandProcessor::ProcessCommand(const CommandMessage& command,
@@ -64,6 +62,11 @@ void CommandProcessor::ProcessCommand(const CommandMessage& command,
     {
         self->processCommandImpl(command, callback);
     });
+}
+
+void CommandProcessor::Start()
+{
+    scheduleNextPerformanceReport();
 }
 
 void CommandProcessor::processCommandImpl(const CommandMessage& command,
@@ -181,7 +184,7 @@ void CommandProcessor::reportPerformance()
     for (const auto& entry : m_performanceCounters)
     {
         auto& counter = entry.second;
-        message += (boost::format("   %1%:\t %2%\n") % counter.m_name % counter.m_counter).str();
+        message += (boost::format("   %1%: %2%\n") % counter.m_name % counter.m_counter).str();
     }
     m_logger->LogRecord(message);
 }

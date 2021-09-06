@@ -15,12 +15,14 @@ namespace kvdb
 struct ClientSessionContext
 {
     using ConnectCallback = std::function<void(bool)>;
+    using CloseCallback = std::function<void(void)>;
 
     boost::asio::io_context&    m_ioContext;
     Logger::Ptr                 m_logger;
-    ConnectCallback             m_callback;
     std::string                 m_hostname;
     int                         m_port;
+    ConnectCallback             m_connectCallback;
+    CloseCallback               m_onCloseCallback;
 };
 
 class ClientSession
@@ -48,8 +50,7 @@ private:
 
     void onResultReceived(const ResultMessage& result);
 
-    void onConnectionClosed();
-
+    boost::asio::io_context::strand m_strand;
     boost::asio::ip::tcp::resolver  m_resolver;
     boost::asio::ip::tcp::socket    m_socket;
     Sender::Ptr                     m_sender;

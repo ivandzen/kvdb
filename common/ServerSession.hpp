@@ -41,6 +41,8 @@ public:
 
     static void Init(const ServerSessionContext& context);
 
+    std::string Address() const;
+
 private:
     using WeakSelf = std::weak_ptr<ServerSession>;
     using Sender = MessageSender<ResultMessage>;
@@ -49,6 +51,7 @@ private:
     void onConnectionAccepted(const boost::system::error_code& error);
     void onCommandReceived(const CommandMessage& command);
 
+    boost::asio::io_context::strand m_strand;
     boost::asio::ip::tcp::socket    m_socket;
     Sender::Ptr                     m_sender;
     Receiver::Ptr                   m_receiver;

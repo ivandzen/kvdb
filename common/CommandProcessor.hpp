@@ -13,9 +13,9 @@ namespace kvdb
 struct CommandProcessorContext
 {
     boost::asio::io_context&    m_ioContext;        ///< asynschronous context
+    Logger::Ptr                 m_logger;
     PersistableMap::Ptr         m_mapInstance;      ///< pointer to the instance of persistable map
     uint32_t                    m_reportIntervalSec;///< interval between two statistical reports (in seconds)
-    Logger::Ptr                 m_logger;
 };
 
 class CommandProcessor
@@ -29,6 +29,8 @@ public:
     explicit CommandProcessor(const CommandProcessorContext& context);
 
     void ProcessCommand(const CommandMessage& command, const ResultCallback& callback);
+
+    void Start();
 
 private:
     using WeakSelf = std::weak_ptr<CommandProcessor>;

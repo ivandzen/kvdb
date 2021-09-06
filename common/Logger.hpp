@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <string>
+#include <thread>
 
 #include <boost/log/sources/logger.hpp>
 #include <boost/log/sources/record_ostream.hpp>
@@ -19,6 +20,7 @@ public:
         if (auto lr = m_logger.open_record())
         {
             boost::log::record_ostream ostream(lr);
+            ostream << std::hex << std::this_thread::get_id() << "  "; // report thread id
             ostream << record;
             ostream.flush();
             m_logger.push_record(boost::move(lr));

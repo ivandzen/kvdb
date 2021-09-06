@@ -1,66 +1,13 @@
-#include <iostream>
-#include <vector>
 #include <thread>
 #include <chrono>
 
+#include <boost/asio.hpp>
 #include <boost/program_options.hpp>
-#include <boost/asio/streambuf.hpp>
 #include <boost/format.hpp>
 #include <boost/log/sinks.hpp>
 #include <boost/core/null_deleter.hpp>
 
-#include "../common/PersistableMap.hpp"
-#include "../common/Protocol.hpp"
-#include "../common/Serialization.hpp"
-
-
 #include "../common/ClientSession.hpp"
-
-void testCommandMessageDeSerialize()
-{
-    kvdb::CommandMessage comIn(kvdb::CommandMessage::INSERT);
-
-    std::string key;
-    key.resize(1024);
-    std::fill(key.begin(), key.end(), 'a');
-    comIn.key.Set(key);
-
-    std::string value;
-    value.resize(10240);
-    std::fill(value.begin(), value.end(), 'a');
-    comIn.value.Set(value);
-
-    kvdb::CommandMessage comOut;
-
-    boost::asio::streambuf sbuf(101240);
-    std::ostream ostream(&sbuf);
-    std::istream istream(&sbuf);
-
-    static const char scOpen = '(';
-    static const char scDelimiter = ',';
-    static const char scClose = ')';
-
-    std::cout << boost::fusion::tuple_open(scOpen)
-              << boost::fusion::tuple_delimiter(scDelimiter)
-              << boost::fusion::tuple_close(scClose);
-
-    {
-        using namespace kvdb;
-
-        Serialize(comIn, ostream);
-        Deserialize(istream, comOut);
-    }
-
-    std::cout << sbuf.size() << "\n";
-    std::cout << "From sbuf: " << std::string((char*)sbuf.data().begin()->data()) << "\n";
-
-    //std::cout << "comIn: " << comIn << "\n";
-    //std::cout << "comOut: " << comOut << "\n";
-
-    std::cout << comOut.key.Get() << ":" << comOut.value.Get() << "\n";
-
-    assert(comIn == comOut);
-}
 
 class ClientApp
 {
@@ -134,9 +81,10 @@ public:
         {
             m_ioContext,
             m_logger,
-            std::bind(&ClientApp::onConnect, this, std::placeholders::_1),
             vm[scArgHostname].as<std::string>(),
-            vm[scArgPort].as<int>()
+            vm[scArgPort].as<int>(),
+            std::bind(&ClientApp::onConnect, this, std::placeholders::_1),
+            std::bind(&ClientApp::onClose, this)
         };
 
         m_session = std::make_shared<kvdb::ClientSession>(sessionContext);
@@ -144,6 +92,8 @@ public:
 
     void Start()
     {
+        m_logger->LogRecord("Starting client...");
+
         try
         {
             boost::asio::signal_set signals(m_ioContext, SIGINT, SIGTERM);
@@ -173,6 +123,12 @@ private:
         }
     }
 
+    void onClose()
+    {
+        m_logger->LogRecord("Connection closed. Exiting...");
+        m_ioContext.stop();
+    }
+
     void onSystemSignal(const boost::system::error_code& error, int signalNumber)
     {
         if (!error)
@@ -187,7 +143,8 @@ private:
             return;
         }
 
-        m_logger->LogRecord((boost::format("Error occured while waiting for system signal: %1%") % error.message()).str());
+        m_logger->LogRecord((boost::format("Error occured while waiting for system signal: %1%")
+                             % error.message()).str());
         exit(1);
     }
 

@@ -15,8 +15,8 @@ namespace kvdb
 struct ServerContext
 {
     boost::asio::io_context&        m_ioContext;
-    CommandProcessor::Ptr           m_processor;
     Logger::Ptr                     m_logger;
+    CommandProcessor::Ptr           m_processor;
     boost::asio::ip::tcp::endpoint  m_endpoint; // endpoint to listen to
 };
 
@@ -27,7 +27,11 @@ class Server
         , public std::enable_shared_from_this<Server>
 {
 public:
+    using Ptr = std::shared_ptr<Server>;
+
     explicit Server(const ServerContext& context);
+
+    void Start();
 
 private:
     void initNewSession();

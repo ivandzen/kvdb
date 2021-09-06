@@ -5,6 +5,7 @@ namespace kvdb
 
 ClientSession::ClientSession(const ClientSessionContext& context)
     : ClientSessionContext(context)
+    , m_strand(m_ioContext)
     , m_resolver(m_ioContext)
     , m_socket(m_ioContext)
 {
@@ -41,7 +42,7 @@ void ClientSession::onEPResolved(const boost::system::error_code& ec,
     if (ec)
     {
         m_logger->LogRecord(ec.message());
-        m_callback(false);
+        m_connectCallback(false);
         return;
     }
 
@@ -60,13 +61,13 @@ void ClientSession::onSocketConnected(const boost::system::error_code& ec)
     if (ec)
     {
         m_logger->LogRecord(ec.message());
-        m_callback(false);
+        m_connectCallback(false);
         return;
     }
 
     m_sender = std::make_shared<Sender>(
                    MessageSenderContext {
-                       m_ioContext,
+                       m_strand,
                        m_socket,
                        m_logger
                    });
@@ -75,26 +76,51 @@ void ClientSession::onSocketConnected(const boost::system::error_code& ec)
     m_receiver = std::make_shared<Receiver>(
                      Receiver::Context {
                          m_ioContext,
+                         m_strand,
                          m_socket,
                          m_logger,
                          std::bind(&ClientSession::onResultReceived, self, std::placeholders::_1),
-                         std::bind(&ClientSession::onConnectionClosed, self),
+                         m_onCloseCallback,
                          scReceiveDataTOutMs
                      });
 
     m_receiver->Start();
-    m_callback(true);
+    m_connectCallback(true);
     return;
 }
 
 void ClientSession::onResultReceived(const ResultMessage& result)
 {
+    switch (result.code)
+    {
+    case ResultMessage::UnknownCommand:
+    {
+        m_logger->LogRecord("Unknown command");
+        break;
+    }
+    case ResultMessage::WrongCommandFormat:
+    {
+        m_logger->LogRecord("Wrong command format");
+        break;
+    }
+    case ResultMessage::InsertSuccess:
+    case ResultMessage::UpdateSuccess:
+    case ResultMessage::GetSuccess:
+    case ResultMessage::DeleteSuccess:
+    {
+        m_logger->LogRecord("OK");
+        break;
+    }
 
-}
-
-void ClientSession::onConnectionClosed()
-{
-
+    case ResultMessage::InsertFailed:
+    case ResultMessage::UpdateFailed:
+    case ResultMessage::GetFailed:
+    case ResultMessage::DeleteFailed:
+    {
+        m_logger->LogRecord("Failed");
+        break;
+    }
+    }
 }
 
 }// namespace kvdb

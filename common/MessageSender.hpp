@@ -16,9 +16,9 @@ namespace kvdb
 
 struct MessageSenderContext
 {
-    boost::asio::io_context&        m_ioContext;
-    boost::asio::ip::tcp::socket&   m_socket; ///< reference to socket used to transmit data
-    Logger::Ptr                     m_logger; ///< pointer to logger
+    boost::asio::io_context::strand&    m_strand; ///< session's strand
+    boost::asio::ip::tcp::socket&       m_socket; ///< reference to socket used to transmit data
+    Logger::Ptr                         m_logger; ///< pointer to logger
 };
 
 template<typename MessageType>
@@ -32,7 +32,6 @@ public:
 
     explicit MessageSender(const MessageSenderContext& context)
         : MessageSenderContext(context)
-        , m_strand(context.m_ioContext)
     {}
 
     void SendMessage(const MessageType& msg)
@@ -125,7 +124,6 @@ private:
         trySendNextMessage();
     }
 
-    boost::asio::io_context::strand m_strand; ///< allows execution of socket callbacks and public methods from different threads
     std::deque<BufPtr>              m_messageQueue;
     BufPtr                          m_currentMessage;
 };

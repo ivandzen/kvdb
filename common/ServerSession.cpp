@@ -9,6 +9,7 @@ namespace kvdb
 
 ServerSession::ServerSession(const ServerSessionContext& context)
     : ServerSessionContext(context)
+    , m_strand(context.m_ioContext)
     , m_socket(context.m_ioContext)
 {}
 
@@ -21,6 +22,13 @@ void ServerSession::Init(const ServerSessionContext& context)
     });
 }
 
+std::string ServerSession::Address() const
+{
+    return (boost::format("%1%:%2%")
+            % m_socket.remote_endpoint().address().to_string()
+            % m_socket.remote_endpoint().port()).str();
+}
+
 void ServerSession::onConnectionAccepted(const boost::system::error_code& error)
 {
     if (error)
@@ -31,7 +39,7 @@ void ServerSession::onConnectionAccepted(const boost::system::error_code& error)
 
     m_sender = std::make_shared<Sender>(
                    MessageSenderContext {
-                       m_ioContext,
+                       m_strand,
                        m_socket,
                        m_logger
                    });
@@ -40,6 +48,7 @@ void ServerSession::onConnectionAccepted(const boost::system::error_code& error)
     m_receiver = std::make_shared<Receiver>(
                      Receiver::Context {
                          m_ioContext,
+                         m_strand,
                          m_socket,
                          m_logger,
                          std::bind(&ServerSession::onCommandReceived, self, std::placeholders::_1),

@@ -18,12 +18,13 @@ struct MessageReceiverContext
     using CloseCallback = std::function<void(void)>;
     using MessageCallback = std::function<void(const MessageType& message)>;
 
-    boost::asio::io_context&        m_ioContext;
-    boost::asio::ip::tcp::socket&   m_socket;
-    Logger::Ptr                     m_logger;
-    MessageCallback                 m_msgCallback;
-    CloseCallback                   m_closeCallback;
-    uint32_t                        m_dataToutMs = 1000; // will wait for data after header maximum 1 second
+    boost::asio::io_context&            m_ioContext;
+    boost::asio::io_context::strand&    m_strand;
+    boost::asio::ip::tcp::socket&       m_socket;
+    Logger::Ptr                         m_logger;
+    MessageCallback                     m_msgCallback;
+    CloseCallback                       m_closeCallback;
+    uint32_t                            m_dataToutMs = 1000; // will wait for data after header maximum 1 second
 };
 
 template<typename MessageType>
@@ -62,7 +63,10 @@ private:
         {
             if (const auto self = weakSelf.lock())
             {
-                self->onHeaderReceived(ec, headerPtr);
+                self->m_strand.post([self, ec, headerPtr]()
+                {
+                    self->onHeaderReceived(ec, headerPtr);
+                });
             }
         });
     }
@@ -98,7 +102,10 @@ private:
         {
             if (const auto self = weakSelf.lock())
             {
-                self->onDataReceived(ec, sbuf);
+                self->m_strand.post([self, ec, sbuf]()
+                {
+                    self->onDataReceived(ec, sbuf);
+                });
             }
         });
 
@@ -108,8 +115,10 @@ private:
         {
             if (const auto self = weakSelf.lock())
             {
-                // this callback do not touch unprotected shared data so no need to execute on strand
-                self->onTimerEvent(ec);
+                self->m_strand.post([self, ec]()
+                {
+                    self->onTimerEvent(ec);
+                });
             }
         });
     }
@@ -173,12 +182,6 @@ private:
         }
 
         startReceive();
-    }
-
-    bool deserialize(std::istream& stream, MessageType& message)
-    {
-        throw std::runtime_error(std::string(__FILE__) + " : " + std::to_string(__LINE__));
-        return true;
     }
 
     boost::asio::deadline_timer     m_timer;
