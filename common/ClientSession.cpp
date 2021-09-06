@@ -1,3 +1,5 @@
+#include <boost/format.hpp>
+
 #include "ClientSession.hpp"
 
 namespace kvdb
@@ -31,9 +33,23 @@ void ClientSession::Connect()
     });
 }
 
-void ClientSession::SendCommand(const CommandMessage& command)
+void ClientSession::SendCommand(const CommandMessage& command,
+                                const ResultCallback& callback)
 {
-    m_sender->SendMessage(command);
+    const auto self = shared_from_this();
+    m_strand.post([self, command, callback]()
+    {
+        if (self->m_resultCallbacks.count(command.id) != 0)
+        {
+            self->m_logger->LogRecord((boost::format("Command with id %1% is already in processing")
+                                       % command.id).str());
+            callback(false, std::string());
+            return;
+        }
+
+        self->m_resultCallbacks.insert({ command.id, callback });
+        self->m_sender->SendMessage(command);
+    });
 }
 
 void ClientSession::onEPResolved(const boost::system::error_code& ec,
@@ -91,36 +107,63 @@ void ClientSession::onSocketConnected(const boost::system::error_code& ec)
 
 void ClientSession::onResultReceived(const ResultMessage& result)
 {
-    switch (result.code)
+    const auto self = shared_from_this();
+    m_strand.post([self, result]()
     {
-    case ResultMessage::UnknownCommand:
-    {
-        m_logger->LogRecord("Unknown command");
-        break;
-    }
-    case ResultMessage::WrongCommandFormat:
-    {
-        m_logger->LogRecord("Wrong command format");
-        break;
-    }
-    case ResultMessage::InsertSuccess:
-    case ResultMessage::UpdateSuccess:
-    case ResultMessage::GetSuccess:
-    case ResultMessage::DeleteSuccess:
-    {
-        m_logger->LogRecord("OK");
-        break;
-    }
+        const auto cbIt = self->m_resultCallbacks.find(result.commandId);
+        if (cbIt == self->m_resultCallbacks.end())
+        {
+            self->m_logger->LogRecord(std::string("Result for unknown comand received : ")
+                                      + std::to_string(result.commandId));
+            return;
+        }
 
-    case ResultMessage::InsertFailed:
-    case ResultMessage::UpdateFailed:
-    case ResultMessage::GetFailed:
-    case ResultMessage::DeleteFailed:
-    {
-        m_logger->LogRecord("Failed");
-        break;
-    }
-    }
+        const auto& callback = (*cbIt).second;
+
+        switch (result.code)
+        {
+        case ResultMessage::UnknownCommand:
+        {
+            self->m_logger->LogRecord("Unknown command");
+            callback(false, std::string());
+            break;
+        }
+        case ResultMessage::WrongCommandFormat:
+        {
+            self->m_logger->LogRecord("Wrong command format");
+            callback(false, std::string());
+            break;
+        }
+        case ResultMessage::InsertSuccess:
+        case ResultMessage::UpdateSuccess:
+        case ResultMessage::GetSuccess:
+        case ResultMessage::DeleteSuccess:
+        {
+            self->m_logger->LogRecord("OK");
+            callback(true, result.value);
+            break;
+        }
+
+        case ResultMessage::InsertFailed:
+        case ResultMessage::UpdateFailed:
+        case ResultMessage::GetFailed:
+        case ResultMessage::DeleteFailed:
+        {
+            self->m_logger->LogRecord("Failed");
+            callback(false, std::string());
+            break;
+        }
+        default:
+        {
+            self->m_logger->LogRecord(std::string("Unknown result code : ")
+                                      + std::to_string(result.code));
+            callback(false, std::string());
+            break;
+        }
+        }
+
+        self->m_resultCallbacks.erase(cbIt);
+    });
 }
 
 }// namespace kvdb

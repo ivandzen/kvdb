@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <functional>
+#include <map>
 
 #include <boost/asio.hpp>
 
@@ -33,11 +34,17 @@ public:
     using Ptr = std::shared_ptr<ClientSession>;
     using WeakPtr = std::weak_ptr<ClientSession>;
 
+    /// @brief callback type for command execution result
+    /// 1st arg - true if executiion was successfull, false otherwise
+    /// 2nd arg - optional string with execution result data (string)
+    using ResultCallback = std::function<void(bool, const std::string&)>;
+
     explicit ClientSession(const ClientSessionContext& context);
 
     void Connect();
 
-    void SendCommand(const CommandMessage& command);
+    void SendCommand(const CommandMessage& command,
+                     const ResultCallback& callback);
 
 private:
     using Sender = MessageSender<CommandMessage>;
@@ -55,7 +62,7 @@ private:
     boost::asio::ip::tcp::socket    m_socket;
     Sender::Ptr                     m_sender;
     Receiver::Ptr                   m_receiver;
-
+    std::map<CommandID, ResultCallback> m_resultCallbacks;
 };
 
 }

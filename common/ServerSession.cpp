@@ -67,7 +67,7 @@ void ServerSession::onCommandReceived(const CommandMessage& command)
                          % int(command.type)
                          % command.key.Get().size()
                          % command.value.Get().size()).str());
-    return;
+    //return;
     m_processor->ProcessCommand(command,
                                 std::bind(&Sender::SendMessage,
                                           m_sender,

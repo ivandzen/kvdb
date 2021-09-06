@@ -71,11 +71,6 @@ public:
             exit(-1);
         }
 
-        for (const auto& entry : vm)
-        {
-            m_logger->LogRecord(std::string(entry.first));
-        }
-
         if (vm.count(scArgHostname) == 0)
         {
             m_logger->LogRecord("host is required");
@@ -207,8 +202,25 @@ private:
         else
         {
             m_logger->LogRecord("ClientSession connected!");
-            m_session->SendCommand(m_command);
+            m_session->SendCommand(m_command,
+                                   std::bind(&ClientApp::onResultReceived, this,
+                                             std::placeholders::_1,
+                                             std::placeholders::_2));
         }
+    }
+
+    void onResultReceived(bool success, const std::string& value)
+    {
+        if (!success)
+        {
+            m_logger->LogRecord("Server failed to execute command");
+        }
+        else if (!value.empty())
+        {
+            std::cout << value;
+        }
+
+        m_ioContext.stop();
     }
 
     void onClose()

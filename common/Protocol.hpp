@@ -82,6 +82,9 @@ private:
     std::string m_content;
 };
 
+/// @brief datatype used to identify commands
+using CommandID = uint32_t;
+
 /// @brief Generalized command
 struct CommandMessage
 {
@@ -112,6 +115,7 @@ struct CommandMessage
                && value == other.value;
    }
 
+   CommandID        id = 0;
    uint8_t          type = UNKNOWN;
    LimitedString    key;
    LimitedString    value;
@@ -134,6 +138,7 @@ struct ResultMessage
       DeleteFailed          = 9,
    };
 
+   CommandID    commandId = 0;
    uint8_t      code;
    std::string  value;
 };
