@@ -161,7 +161,7 @@ private:
             startReceive();
             return;
         }
-        else
+        else if (ec)
         {
             this->m_logger->LogRecord(std::string("Unexpected error occured : ") + ec.message());
             startReceive();

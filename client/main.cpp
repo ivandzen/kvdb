@@ -9,6 +9,9 @@
 
 #include "../common/ClientSession.hpp"
 
+namespace kvdb
+{
+
 class ClientApp
 {
 public:
@@ -33,7 +36,7 @@ public:
             core::get()->add_sink(sink);
         }
 
-        m_logger = std::make_shared<kvdb::Logger>();
+        m_logger = std::make_shared<Logger>();
 
         ///-----------------------------------------------------------------------------------------
         /// Configure application arguments
@@ -45,13 +48,20 @@ public:
                  "[required] name/address of the KVDB host to connect to")
                 (scArgPort, value<int>()->default_value(scDefaultPort),
                  "[required] port of the KVDB host to connect to")
-                (scArgCommand, value<std::string>(),
+                (scArgCommand, value<std::vector<std::string>>(),
                  "[required] command to execute");
+
+        positional_options_description posDesc;
+        posDesc.add(scArgCommand, 3);
 
         variables_map vm;
         try
         {
-            store(parse_command_line(argc, argv, desc), vm);
+            store(command_line_parser(argc, argv)
+                        .options(desc)
+                        .positional(posDesc)
+                        .run(),
+                  vm);
             notify(vm);
         }
         catch (boost::program_options::error& e)
@@ -59,6 +69,11 @@ public:
             m_logger->LogRecord(std::string("Error while parse comand line arguments: ") + e.what());
             std::this_thread::sleep_for(std::chrono::milliseconds(2000));
             exit(-1);
+        }
+
+        for (const auto& entry : vm)
+        {
+            m_logger->LogRecord(std::string(entry.first));
         }
 
         if (vm.count(scArgHostname) == 0)
@@ -75,9 +90,17 @@ public:
             exit(-1);
         }
 
+        const auto command = vm[scArgCommand].as<std::vector<std::string>>();
+        if (!parseCommand(command, m_command))
+        {
+            m_logger->LogRecord("Unable to parse command");
+            std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+            exit(-1);
+        }
+
         ///-----------------------------------------------------------------------------------------
         /// Initializing client session
-        kvdb::ClientSessionContext sessionContext =
+        ClientSessionContext sessionContext =
         {
             m_ioContext,
             m_logger,
@@ -87,7 +110,7 @@ public:
             std::bind(&ClientApp::onClose, this)
         };
 
-        m_session = std::make_shared<kvdb::ClientSession>(sessionContext);
+        m_session = std::make_shared<ClientSession>(sessionContext);
     }
 
     void Start()
@@ -110,6 +133,70 @@ public:
     }
 
 private:
+    bool parseCommand(const std::vector<std::string>& command, CommandMessage& msg)
+    {
+        static const int scOperationIdx = 0;
+        static const int scKeyIdx = 1;
+        static const int scValueIdx = 2;
+
+        const auto operation = command[scOperationIdx];
+        if (operation == "INSERT")
+        {
+            if (command.size() != 3)
+            {
+                m_logger->LogRecord("INSERT requires 2 arguments separated by space: INSERT <key> <value>");
+                return false;
+            }
+
+            msg.type = CommandMessage::INSERT;
+            msg.key.Set(command[scKeyIdx]);
+            msg.value.Set(command[scValueIdx]);
+        }
+        else if (operation == "UPDATE")
+        {
+            if (command.size() != 3)
+            {
+                m_logger->LogRecord("UPDATE requires 2 arguments separated by space: UPDATE <key> <value>");
+                return false;
+            }
+
+            msg.type = CommandMessage::UPDATE;
+            msg.key.Set(command[scKeyIdx]);
+            msg.value.Set(command[scValueIdx]);
+        }
+        else if (operation == "GET")
+        {
+            if (command.size() != 2)
+            {
+                m_logger->LogRecord("GET requires 1 argument: GET <key>");
+                return false;
+            }
+
+            msg.type = CommandMessage::GET;
+            msg.key.Set(command[scKeyIdx]);
+            msg.value.Set(std::string());
+        }
+        else if (operation == "DELETE")
+        {
+            if (command.size() != 2)
+            {
+                m_logger->LogRecord("DELETE requires 1 argument: DELETE <key>");
+                return false;
+            }
+
+            msg.type = CommandMessage::DELETE;
+            msg.key.Set(command[scKeyIdx]);
+            msg.value.Set(std::string());
+        }
+        else
+        {
+            m_logger->LogRecord(std::string("Unknown operation : ") + operation);
+            return false;
+        }
+
+        return true;
+    }
+
     void onConnect(bool success)
     {
         if (!success)
@@ -120,6 +207,7 @@ private:
         else
         {
             m_logger->LogRecord("ClientSession connected!");
+            m_session->SendCommand(m_command);
         }
     }
 
@@ -148,13 +236,16 @@ private:
         exit(1);
     }
 
-    boost::asio::io_context     m_ioContext;
-    kvdb::Logger::Ptr           m_logger;
-    kvdb::ClientSession::Ptr    m_session;
+    boost::asio::io_context m_ioContext;
+    Logger::Ptr             m_logger;
+    ClientSession::Ptr      m_session;
+    CommandMessage          m_command;
 };
+
+} // namespace kvdb
 
 int main(int argc, char** argv)
 {
-    ClientApp app(argc, argv);
+    kvdb::ClientApp app(argc, argv);
     app.Start();
 }

@@ -62,6 +62,12 @@ void ServerSession::onConnectionAccepted(const boost::system::error_code& error)
 
 void ServerSession::onCommandReceived(const CommandMessage& command)
 {
+    m_logger->LogRecord((boost::format("Command received:\n\ttype = %1%"
+                                      "\n\tkey.size = %2%\n\tvalue.size = %3%")
+                         % int(command.type)
+                         % command.key.Get().size()
+                         % command.value.Get().size()).str());
+    return;
     m_processor->ProcessCommand(command,
                                 std::bind(&Sender::SendMessage,
                                           m_sender,
