@@ -2,6 +2,7 @@
 
 #include <string>
 #include <memory>
+#include <shared_mutex>
 
 #include <boost/interprocess/allocators/cached_node_allocator.hpp>
 #include <boost/interprocess/managed_mapped_file.hpp>
@@ -14,11 +15,16 @@
 namespace kvdb
 {
 
+/// @brief Maps unique key (std::string) to value(std::string)
+/// Uses memory mapped file to store it's content
+/// All public methods can be used concurrently from different threads,
+/// all of them are blocking
 class PersistableMap
 {
 public:
     using Ptr = std::shared_ptr<PersistableMap>;
     using SegmentManager = boost::interprocess::managed_mapped_file::segment_manager;
+    using Millis = std::chrono::milliseconds;
 
     struct Stat
     {
@@ -30,13 +36,10 @@ public:
 
     virtual ~PersistableMap();
 
-    bool Insert(const std::string& key, const std::string& value);
-
-    bool Update(const std::string& key, const std::string& value);
-
-    bool Get(const std::string& key, std::string& output);
-
-    bool Delete(const std::string& key);
+    void Insert(const std::string& key, const std::string& value, const Millis& lockTout);
+    void Update(const std::string& key, const std::string& value, const Millis& lockTout);
+    void Get(const std::string& key, std::string& output, const Millis& lockTout) const;
+    void Delete(const std::string& key, const Millis& lockTout);
 
     Stat GetStat()
     {
@@ -107,9 +110,10 @@ private:
     using InternalStoragePtr = InternalStorage*;
     using InternalStorageAllocator = boost::multi_index::detail::rebind_alloc_for<Allocator<char>, PersistableMap>::type;
 
-    MappedFilePtr       m_mappedFile;
-    AllocatorPtr        m_allocator;
-    InternalStoragePtr  m_internalStorage;
+    MappedFilePtr               m_mappedFile;
+    AllocatorPtr                m_allocator;
+    InternalStoragePtr          m_internalStorage;
+    mutable std::shared_timed_mutex m_mutex;
 };
 
 

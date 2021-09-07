@@ -54,115 +54,120 @@ CommandProcessor::CommandProcessor(const CommandProcessorContext& context)
                                  });
 }
 
-void CommandProcessor::ProcessCommand(const CommandMessage& command,
-                                      const ResultCallback& callback)
-{
-    const auto self = shared_from_this();
-    m_strand.post([self, command, callback]()
-    {
-        self->processCommandImpl(command, callback);
-    });
-}
-
 void CommandProcessor::Start()
 {
     scheduleNextPerformanceReport();
 }
 
-void CommandProcessor::processCommandImpl(const CommandMessage& command,
-                                          const ResultCallback& callback)
+void CommandProcessor::ProcessCommand(const CommandMessage& command,
+                                      const ResultCallback& callback)
 {
     ResultMessage result;
     ResultMessage::Code code;
 
     const auto& key = command.key.Get();
     const auto& value = command.value.Get();
+    const auto lockTout = std::chrono::milliseconds(scLockToutMs);
 
-    switch (command.type)
+    try
     {
-    case CommandMessage::INSERT:
-    {
-        if (key.empty() || value.empty())
+        switch (command.type)
         {
-            code = ResultMessage::WrongCommandFormat;
+        case CommandMessage::INSERT:
+        {
+            // it is allowed to set empty values for keys
+            if (key.empty())
+            {
+                result.code = ResultMessage::WrongCommandFormat;
+                break;
+            }
+
+            m_mapInstance->Insert(key, value, lockTout);
+            result.code = ResultMessage::InsertSuccess;
             break;
         }
 
-        code = m_mapInstance->Insert(key, value)
-               ? ResultMessage::InsertSuccess
-               : ResultMessage::InsertFailed;
-        break;
-    }
-
-    case CommandMessage::UPDATE:
-    {
-        if (key.empty() || value.empty())
+        case CommandMessage::UPDATE:
         {
-            code = ResultMessage::WrongCommandFormat;
+            // it is allowed to set empty values for keys
+            if (key.empty())
+            {
+                result.code = ResultMessage::WrongCommandFormat;
+                break;
+            }
+
+            m_mapInstance->Update(key, value, lockTout);
+            result.code = ResultMessage::UpdateSuccess;
             break;
         }
 
-        code = m_mapInstance->Update(key, value)
-               ? ResultMessage::UpdateSuccess
-               : ResultMessage::UpdateFailed;
-        break;
-    }
-
-    case CommandMessage::GET:
-    {
-        if (key.empty() || !value.empty())
+        case CommandMessage::GET:
         {
-            code = ResultMessage::WrongCommandFormat;
+            if (key.empty() || !value.empty())
+            {
+                result.code = ResultMessage::WrongCommandFormat;
+                break;
+            }
+
+            m_mapInstance->Get(key, result.value, lockTout);
+            result.code = ResultMessage::GetSuccess;
             break;
         }
 
-        code = m_mapInstance->Get(key, result.value)
-               ? ResultMessage::GetSuccess
-               : ResultMessage::GetFailed;
-        break;
-    }
-
-    case CommandMessage::DELETE:
-    {
-        if (key.empty() || !value.empty())
+        case CommandMessage::DELETE:
         {
-            code = ResultMessage::WrongCommandFormat;
+            if (key.empty() || !value.empty())
+            {
+                result.code = ResultMessage::WrongCommandFormat;
+                break;
+            }
+
+            m_mapInstance->Delete(key, lockTout);
+            result.code = ResultMessage::DeleteSuccess;
             break;
         }
 
-        code = m_mapInstance->Delete(key)
-               ? ResultMessage::DeleteSuccess
-               : ResultMessage::DeleteFailed;
-        break;
+        default:
+        {
+            result.code = ResultMessage::UnknownCommand;
+            break;
+        }
+        }
     }
-
-    default:
+    catch (const std::exception& e)
     {
-        code = ResultMessage::UnknownCommand;
-        break;
-    }
+        m_logger->LogRecord(std::string("Exception occured when performing operation on map: ") + e.what());
+        switch (command.type)
+        {
+        case CommandMessage::INSERT:
+            result.code = ResultMessage::InsertFailed;
+            break;
+        case CommandMessage::UPDATE:
+            result.code = ResultMessage::UpdateFailed;
+            break;
+        case CommandMessage::GET:
+            result.code = ResultMessage::GetFailed;
+            break;
+        case CommandMessage::DELETE:
+            result.code = ResultMessage::DeleteFailed;
+            break;
+        }
     }
 
-    ++m_performanceCounters[result.code];
+    m_strand.post([this, result]()
+    {
+        // protect m_performanceCounters from concurrent access
+        ++m_performanceCounters[result.code];
+    });
+
     callback(result);
 }
 
 void CommandProcessor::scheduleNextPerformanceReport()
 {
-    const WeakSelf weakSelf = shared_from_this();
     m_reportTimer.expires_from_now(boost::posix_time::seconds(m_reportIntervalSec));
-    m_reportTimer.async_wait([weakSelf](const boost::system::error_code& ec)
-    {
-        // timer events and ProcessCommand calls can occur on a different threads
-        if (const auto self = weakSelf.lock())
-        {
-            // guard shared data by executing logic in the strand
-            self->m_strand.post([self, ec]()
-            {
-                self->onReportTimerElapsed(ec);
-            });
-        }
-    });
+    m_reportTimer.async_wait(std::bind(&CommandProcessor::onReportTimerElapsed, this,
+                                       std::placeholders::_1));
 }
 
 void CommandProcessor::onReportTimerElapsed(const boost::system::error_code& ec)
@@ -173,7 +178,8 @@ void CommandProcessor::onReportTimerElapsed(const boost::system::error_code& ec)
     }
     else
     {
-        reportPerformance();
+        // protect m_performanceCounters from concurrent access
+        m_strand.post(std::bind(&CommandProcessor::reportPerformance, this));
         scheduleNextPerformanceReport();
     }
 }

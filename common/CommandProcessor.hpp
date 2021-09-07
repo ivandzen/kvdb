@@ -35,8 +35,6 @@ public:
 private:
     using WeakSelf = std::weak_ptr<CommandProcessor>;
 
-    void processCommandImpl(const CommandMessage& command, const ResultCallback& callback);
-
     struct PerfCounter
     {
         std::string m_name;
@@ -58,9 +56,12 @@ private:
 
     void reportPerformance();
 
-    boost::asio::io_context::strand m_strand;
+    static const uint32_t scLockToutMs = 500;
+
     boost::asio::deadline_timer     m_reportTimer;
     std::map<uint8_t, PerfCounter>  m_performanceCounters;
+    boost::asio::io_context::strand m_strand; ///< pretects m_performanceCounters
+                                              ///< from concurrent access
 };
 
 }

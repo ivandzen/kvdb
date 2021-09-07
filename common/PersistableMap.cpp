@@ -39,57 +39,79 @@ PersistableMap::~PersistableMap()
     m_mappedFile->flush();
 }
 
-bool PersistableMap::Insert(const std::string& key, const std::string& value)
+void PersistableMap::Insert(const std::string& key, const std::string& value, const Millis& lockTout)
 {
-    auto& index = m_internalStorage->get<Entry::ByKey>();
-    if (index.find(key) == index.end())
+    std::unique_lock lock(m_mutex, lockTout);
+    if (!lock.owns_lock())
     {
-        index.insert(Entry(key, value, *m_allocator));
-        return true;
+        throw std::runtime_error("Failed to aquire unique lock on mutex");
     }
 
-    return false;
+    auto& index = m_internalStorage->get<Entry::ByKey>();
+    if (index.find(key) != index.end())
+    {
+        throw std::runtime_error("Key already exist");
+    }
+
+    index.insert(Entry(key, value, *m_allocator));
 }
 
-bool PersistableMap::Update(const std::string& key, const std::string& value)
+void PersistableMap::Update(const std::string& key, const std::string& value, const Millis& lockTout)
 {
+    std::unique_lock lock(m_mutex, lockTout);
+    if (!lock.owns_lock())
+    {
+        throw std::runtime_error("Failed to aquire unique lock on mutex");
+    }
+
     auto& index = m_internalStorage->get<Entry::ByKey>();
     auto it = index.find(key);
     if (it == index.end())
     {
-        return false;
+        throw std::runtime_error("Key not found");
     }
 
-    return index.modify(it, [&value](Entry& entry)
+    if (!index.modify(it, [&value](Entry& entry) { entry.value = value; }))
     {
-        entry.value = value;
-    });
+        throw std::runtime_error("Failed to set value");
+    }
 }
 
-bool PersistableMap::Get(const std::string& key, std::string& output)
+void PersistableMap::Get(const std::string& key, std::string& output, const Millis& lockTout) const
 {
+    // several threads can access Get method
+    std::shared_lock lock(m_mutex, lockTout);
+    if (!lock.owns_lock())
+    {
+        throw std::runtime_error("Failed to aquire shared lock on mutex");
+    }
+
     auto& index = m_internalStorage->get<Entry::ByKey>();
     auto it = index.find(key);
     if (it == index.end())
     {
-        return false;
+        throw std::runtime_error("Key not found");
     }
 
     output = (*it).value;
-    return true;
 }
 
-bool PersistableMap::Delete(const std::string& key)
+void PersistableMap::Delete(const std::string& key, const Millis& lockTout)
 {
+    std::unique_lock lock(m_mutex, lockTout);
+    if (!lock.owns_lock())
+    {
+        throw std::runtime_error("Failed to aquire unique lock on mutex");
+    }
+
     auto& index = m_internalStorage->get<Entry::ByKey>();
     auto it = index.find(key);
     if (it == index.end())
     {
-        return false;
+        throw std::runtime_error("Key not found");
     }
 
     index.erase(it);
-    return true;
 }
 
 }// namespace kvdb
