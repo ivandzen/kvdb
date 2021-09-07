@@ -84,62 +84,58 @@ inline void Deserialize<LimitedString>(std::istream& istream, LimitedString& str
     }
 }
 
-template<>
-inline void Serialize<CommandMessage>(const CommandMessage& msg, std::ostream& ostream)
+template<typename MessageType>
+inline void SerializeProtocolMessage(const MessageType& msg, std::ostream& ostream)
 {
     boost::fusion::for_each(msg, [&ostream](const auto& data)
     {
         Serialize(data, ostream);
         ostream << ' ';
     });
+}
+
+
+template<typename MessageType>
+inline void DeserializeProtocolMessage(std::istream& istream, MessageType& msg)
+{
+    boost::fusion::for_each(msg, [&istream](auto& data)
+    {
+        Deserialize(istream, data);
+
+        // try to find space after previously parsed element
+        char space;
+        istream.read(&space, 1);
+
+        if (space != ' ')
+        {
+            // protocol violation
+            throw std::runtime_error("Failed to deserialize message");
+        }
+    });
+}
+
+template<>
+inline void Serialize<CommandMessage>(const CommandMessage& msg, std::ostream& ostream)
+{
+    SerializeProtocolMessage(msg, ostream);
 }
 
 template<>
 inline void Deserialize<CommandMessage>(std::istream& istream, CommandMessage& msg)
 {
-    boost::fusion::for_each(msg, [&istream](auto& data)
-    {
-        Deserialize(istream, data);
-
-        // try to find space after previously parsed element
-        char space;
-        istream.read(&space, 1);
-
-        if (space != ' ')
-        {
-            // protocol violation
-            throw std::runtime_error("Failed to parse CommandMessage");
-        }
-    });
+    DeserializeProtocolMessage(istream, msg);
 }
 
 template<>
 inline void Serialize<ResultMessage>(const ResultMessage& msg, std::ostream& ostream)
 {
-    boost::fusion::for_each(msg, [&ostream](const auto& data)
-    {
-        Serialize(data, ostream);
-        ostream << ' ';
-    });
+    SerializeProtocolMessage(msg, ostream);
 }
 
 template<>
 inline void Deserialize<ResultMessage>(std::istream& istream, ResultMessage& msg)
 {
-    boost::fusion::for_each(msg, [&istream](auto& data)
-    {
-        Deserialize(istream, data);
-
-        // try to find space after previously parsed element
-        char space;
-        istream.read(&space, 1);
-
-        if (space != ' ')
-        {
-            // protocol violation
-            throw std::runtime_error("Failed to parse ResultMessage");
-        }
-    });
+    DeserializeProtocolMessage(istream, msg);
 }
 
 }// namespace kvdb
