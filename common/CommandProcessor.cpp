@@ -63,7 +63,6 @@ void CommandProcessor::ProcessCommand(const CommandMessage& command,
                                       const ResultCallback& callback)
 {
     ResultMessage result;
-    ResultMessage::Code code;
 
     const auto& key = command.key.Get();
     const auto& value = command.value.Get();
@@ -109,7 +108,9 @@ void CommandProcessor::ProcessCommand(const CommandMessage& command,
                 break;
             }
 
-            m_mapInstance->Get(key, result.value, lockTout);
+            std::string outValue;
+            m_mapInstance->Get(key, outValue, lockTout);
+            result.value.Set(outValue);
             result.code = ResultMessage::GetSuccess;
             break;
         }

@@ -22,7 +22,7 @@ BOOST_FUSION_ADAPT_STRUCT
 (
       kvdb::ResultMessage,
       (uint8_t, code)
-      (std::string, value)
+      (kvdb::LimitedString, value)
 )
 
 namespace kvdb
@@ -109,6 +109,35 @@ inline void Deserialize<CommandMessage>(std::istream& istream, CommandMessage& m
         {
             // protocol violation
             throw std::runtime_error("Failed to parse CommandMessage");
+        }
+    });
+}
+
+template<>
+inline void Serialize<ResultMessage>(const ResultMessage& msg, std::ostream& ostream)
+{
+    boost::fusion::for_each(msg, [&ostream](const auto& data)
+    {
+        Serialize(data, ostream);
+        ostream << ' ';
+    });
+}
+
+template<>
+inline void Deserialize<ResultMessage>(std::istream& istream, ResultMessage& msg)
+{
+    boost::fusion::for_each(msg, [&istream](auto& data)
+    {
+        Deserialize(istream, data);
+
+        // try to find space after previously parsed element
+        char space;
+        istream.read(&space, 1);
+
+        if (space != ' ')
+        {
+            // protocol violation
+            throw std::runtime_error("Failed to parse ResultMessage");
         }
     });
 }

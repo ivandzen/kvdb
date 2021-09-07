@@ -84,6 +84,8 @@ private:
 
 /// @brief datatype used to identify commands
 using CommandID = uint32_t;
+static const std::size_t scMaxKeySize = 1024;
+static const std::size_t scMaxValueSize = 1024 * 1024;
 
 /// @brief Generalized command
 struct CommandMessage
@@ -96,9 +98,6 @@ struct CommandMessage
       DELETE,
       GET
    };
-
-   static const std::size_t scMaxKeySize = 1024;
-   static const std::size_t scMaxValueSize = 1024 * 1024;
 
    CommandMessage(const uint8_t type = 0,
                   const std::string& key = std::string(),
@@ -138,9 +137,15 @@ struct ResultMessage
       DeleteFailed          = 9,
    };
 
-   CommandID    commandId = 0;
-   uint8_t      code;
-   std::string  value;
+   ResultMessage(const uint8_t code = 0,
+                  const std::string& value = std::string())
+       : code(code)
+       , value(scMaxValueSize, value)
+   {}
+
+   CommandID        commandId = 0;
+   uint8_t          code;
+   LimitedString    value;
 };
 
 }

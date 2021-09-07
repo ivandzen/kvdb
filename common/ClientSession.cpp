@@ -140,7 +140,7 @@ void ClientSession::onResultReceived(const ResultMessage& result)
         case ResultMessage::DeleteSuccess:
         {
             self->m_logger->LogRecord("OK");
-            callback(true, result.value);
+            callback(true, result.value.Get());
             break;
         }
 
