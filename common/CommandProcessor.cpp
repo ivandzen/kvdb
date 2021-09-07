@@ -54,6 +54,11 @@ CommandProcessor::CommandProcessor(const CommandProcessorContext& context)
                                  });
 }
 
+CommandProcessor::~CommandProcessor()
+{
+    m_logger->LogRecord("CommandProcessor destroyed");
+}
+
 void CommandProcessor::Start()
 {
     scheduleNextPerformanceReport();

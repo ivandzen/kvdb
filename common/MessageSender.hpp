@@ -34,6 +34,11 @@ public:
         : MessageSenderContext(context)
     {}
 
+    virtual ~MessageSender()
+    {
+        this->m_logger->LogRecord("MessageSender destroyed");
+    }
+
     void SendMessage(const MessageType& msg)
     {
         BufPtr streambuf = std::make_shared<boost::asio::streambuf>();

@@ -41,6 +41,8 @@ public:
 
     explicit ClientSession(const ClientSessionContext& context);
 
+    virtual ~ClientSession();
+
     void Connect();
 
     void SendCommand(const CommandMessage& command,

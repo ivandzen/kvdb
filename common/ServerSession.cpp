@@ -13,6 +13,11 @@ ServerSession::ServerSession(const ServerSessionContext& context)
     , m_socket(context.m_ioContext)
 {}
 
+ServerSession::~ServerSession()
+{
+    m_logger->LogRecord("ServerSession destroyed");
+}
+
 void ServerSession::Init(const ServerSessionContext& context)
 {
     auto newSession = std::make_shared<ServerSession>(context);

@@ -13,6 +13,11 @@ ClientSession::ClientSession(const ClientSessionContext& context)
 {
 }
 
+ClientSession::~ClientSession()
+{
+    m_logger->LogRecord("ClientSession destroyed");
+}
+
 void ClientSession::Connect()
 {
     if (m_socket.is_open())

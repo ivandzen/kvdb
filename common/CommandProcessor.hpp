@@ -28,6 +28,8 @@ public:
 
     explicit CommandProcessor(const CommandProcessorContext& context);
 
+    virtual ~CommandProcessor();
+
     void ProcessCommand(const CommandMessage& command, const ResultCallback& callback);
 
     void Start();

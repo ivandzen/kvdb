@@ -43,6 +43,11 @@ public:
     {
     }
 
+    virtual ~MessageReceiver()
+    {
+        this->m_logger->LogRecord("MessageReceiver destroyed");
+    }
+
     void Start()
     {
         startReceive();
