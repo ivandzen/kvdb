@@ -45,9 +45,34 @@ void testCommandMessageDeSerialize()
     assert(comIn == comOut);
 }
 
+void testResultMessageDeSerialize()
+{
+    kvdb::ResultMessage resIn(0, "HELL  jklk O");
+
+    kvdb::ResultMessage resOut;
+
+    boost::asio::streambuf sbuf(500);
+    std::ostream ostream(&sbuf);
+    std::istream istream(&sbuf);
+
+    {
+        using namespace kvdb;
+
+        Serialize(resIn, ostream);
+        //Deserialize(istream, resOut);
+    }
+
+    std::cout << sbuf.size() << "\n";
+    std::cout << "From sbuf: " << std::string((char*)sbuf.data().begin()->data()) << "\n";
+    std::cout << "code " << resOut.code << " " << resOut.value.Get() << "\n";
+
+    //assert(resIn == resOut);
+}
+
 
 int main(int argc, char** argv)
 {
     testCommandMessageDeSerialize();
+    testResultMessageDeSerialize();
     return 0;
 }
