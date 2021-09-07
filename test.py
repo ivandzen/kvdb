@@ -30,7 +30,7 @@ class Client:
       cmd = commandTmp.format(hostname = self.hostname,
                               port = self.port,
                               query = query)
-      return subprocess.check_output(cmd, shell = True)
+      return subprocess.check_output(cmd, shell = True).decode('utf-8')
       
    def Delete(self, key):
       query = f'DELETE "{key}"'
@@ -51,12 +51,25 @@ def generateRandomString(from_size, to_size):
 
 if __name__ == "__main__":
    client = Client('localhost', 5001)
-   numRecords = 5000
+   numRecords = 50
    maxKeyLength = 1024
    maxValueLength = 1024 * 1024
+   compareData = {}
    
    for i in range(numRecords):
       key = generateRandomString(500, 1024)
-      value = generateRandomString(1000, 10240)
-      if not client.Insert(key, value):
-         break
+      value = generateRandomString(10, 50)
+      if client.Insert(key, value):
+         compareData[key] = value
+         
+   for key, value in compareData.items():
+      try:
+         valueRemote = client.Get(key)
+         if value != valueRemote:
+            print(f"Values not compare: {value}\n\n\n{valueRemote}")
+      except e:
+         print("Error occured when querying data from KVDB")
+         
+   for key, value in compareData.items():
+      if not client.Delete(key):
+         print("Failed to delete element")

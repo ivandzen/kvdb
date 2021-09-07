@@ -52,6 +52,7 @@ private:
 
     void onConnectionAccepted(const boost::system::error_code& error);
     void onCommandReceived(const CommandMessage& command);
+    void onConnectionClosed();
 
     boost::asio::io_context::strand m_strand;
     boost::asio::ip::tcp::socket    m_socket;

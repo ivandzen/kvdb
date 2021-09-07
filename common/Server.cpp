@@ -34,14 +34,12 @@ void Server::initNewSession()
 
 void Server::onSessionInitialized(const ServerSessionPtr& session)
 {
-    m_logger->LogRecord(std::string("New client connected ") + session->Address());
     m_sessions.insert(session);
     initNewSession(); // continue to accept clients
 }
 
 void Server::onSessionClosed(const ServerSessionPtr& session)
 {
-    m_logger->LogRecord(std::string("Client disconnected ") + session->Address());
     m_sessions.erase(session);
 }
 

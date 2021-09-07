@@ -81,7 +81,6 @@ private:
         // connection may be closed
         if (ec == boost::asio::error::eof || ec == boost::asio::error::broken_pipe)
         {
-            this->m_logger->LogRecord("Connection closed");
             this->m_closeCallback();
             return;
         }
@@ -156,7 +155,6 @@ private:
         // connection may be closed
         if (ec == boost::asio::error::eof || ec == boost::asio::error::broken_pipe)
         {
-            this->m_logger->LogRecord("Connection closed");
             this->m_closeCallback();
             return;
         }
