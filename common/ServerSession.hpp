@@ -39,6 +39,8 @@ public:
 
     explicit ServerSession(const ServerSessionContext& context);
 
+    virtual ~ServerSession();
+
     static void Init(const ServerSessionContext& context);
 
     std::string Address() const;

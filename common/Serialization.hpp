@@ -13,7 +13,7 @@
 BOOST_FUSION_ADAPT_STRUCT
 (
       kvdb::CommandMessage,
-      (uint8_t, type)
+      (int, type)
       (kvdb::LimitedString, key)
       (kvdb::LimitedString, value)
 )
@@ -21,7 +21,7 @@ BOOST_FUSION_ADAPT_STRUCT
 BOOST_FUSION_ADAPT_STRUCT
 (
       kvdb::ResultMessage,
-      (uint8_t, code)
+      (int, code)
       (kvdb::LimitedString, value)
 )
 

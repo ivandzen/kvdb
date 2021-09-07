@@ -115,7 +115,7 @@ struct CommandMessage
    }
 
    CommandID        id = 0;
-   uint8_t          type = UNKNOWN;
+   int              type = UNKNOWN;
    LimitedString    key;
    LimitedString    value;
 };
@@ -144,7 +144,7 @@ struct ResultMessage
    {}
 
    CommandID        commandId = 0;
-   uint8_t          code;
+   int              code;
    LimitedString    value;
 };
 
