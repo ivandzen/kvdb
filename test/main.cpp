@@ -59,14 +59,14 @@ void testResultMessageDeSerialize()
         using namespace kvdb;
 
         Serialize(resIn, ostream);
-        //Deserialize(istream, resOut);
+        Deserialize(istream, resOut);
     }
 
     std::cout << sbuf.size() << "\n";
     std::cout << "From sbuf: " << std::string((char*)sbuf.data().begin()->data()) << "\n";
     std::cout << "code " << resOut.code << " " << resOut.value.Get() << "\n";
 
-    //assert(resIn == resOut);
+    assert(resIn == resOut);
 }
 
 

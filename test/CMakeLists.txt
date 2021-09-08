@@ -6,6 +6,9 @@ file(GLOB _src "*.cpp" "*.hpp")
 
 add_executable(${_test_target} ${_src})
 
+add_dependencies(${_test_target}
+   kvdb)
+
 target_link_libraries(${_test_target}
    "${CMAKE_BINARY_DIR}/common/libkvdb.a"
    ${Boost_THREAD_LIBRARY}

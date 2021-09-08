@@ -143,6 +143,13 @@ struct ResultMessage
        , value(scMaxValueSize, value)
    {}
 
+   bool operator==(const ResultMessage& other) const
+   {
+       return commandId == other.commandId
+               && code == other.code
+               && value == other.value;
+   }
+
    CommandID        commandId = 0;
    int              code;
    LimitedString    value;
