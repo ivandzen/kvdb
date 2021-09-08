@@ -1,0 +1,33 @@
+version: '3'
+
+x-base-kvdb: &x-base-kvdb
+   build:
+      context: ../
+      dockerfile: docker/Dockerfile
+   image: kvdb:latest
+   working_dir: /usr/local/kvdb/
+   volumes:
+      - ..:/usr/local/kvdb
+
+services:
+   build_all:
+      <<: *x-base-kvdb
+      command: ./build.sh
+      
+   server:
+      <<: *x-base-kvdb
+      stop_signal: SIGTERM
+      command: "./build/server/kvdb_server --port=5001 --file=./build/server/mapfile.map"
+      ports:
+         - "5001:5001"
+         
+#   test:
+#      depends_on:
+#         - server    
+#      <<: *x-base-kvdb
+#      command: "python3 ./test.py"
+#      networks: 
+#         - testnet
+         
+#networks:
+#   testnet:
