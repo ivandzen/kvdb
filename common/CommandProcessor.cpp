@@ -14,7 +14,7 @@ CommandProcessor::CommandProcessor(const CommandProcessorContext& context)
 {
     m_performanceCounters.insert({
                                      ResultMessage::UnknownCommand,
-                                     PerfCounter("Number of unknown commands\t")
+                                     PerfCounter("Number of unknown commands     ")
                                  });
     m_performanceCounters.insert({
                                      ResultMessage::WrongCommandFormat,
@@ -22,45 +22,46 @@ CommandProcessor::CommandProcessor(const CommandProcessorContext& context)
                                  });
     m_performanceCounters.insert({
                                      ResultMessage::InsertSuccess,
-                                     PerfCounter("INSERT Ok\t")
+                                     PerfCounter("INSERT Ok      ")
                                  });
     m_performanceCounters.insert({
                                      ResultMessage::InsertFailed,
-                                     PerfCounter("INSERT Failed\t")
+                                     PerfCounter("INSERT Failed  ")
                                  });
     m_performanceCounters.insert({
                                      ResultMessage::UpdateSuccess,
-                                     PerfCounter("UPDATE Ok\t")
+                                     PerfCounter("UPDATE Ok      ")
                                  });
     m_performanceCounters.insert({
                                      ResultMessage::UpdateFailed,
-                                     PerfCounter("UPDATE Failed\t")
+                                     PerfCounter("UPDATE Failed  ")
                                  });
     m_performanceCounters.insert({
                                      ResultMessage::GetSuccess,
-                                     PerfCounter("GET Ok\t\t")
+                                     PerfCounter("GET Ok         ")
                                  });
     m_performanceCounters.insert({
                                      ResultMessage::GetFailed,
-                                     PerfCounter("GET Failed\t")
+                                     PerfCounter("GET Failed     ")
                                  });
     m_performanceCounters.insert({
                                      ResultMessage::DeleteSuccess,
-                                     PerfCounter("DELETE Ok\t")
+                                     PerfCounter("DELETE Ok      ")
                                  });
     m_performanceCounters.insert({
                                      ResultMessage::DeleteFailed,
-                                     PerfCounter("DELETE Failed\t")
+                                     PerfCounter("DELETE Failed  ")
                                  });
 }
 
 CommandProcessor::~CommandProcessor()
 {
-    m_logger->LogRecord("CommandProcessor destroyed");
+    m_logger.LogRecord("CommandProcessor destroyed");
 }
 
 void CommandProcessor::Start()
 {
+    m_strand.post(std::bind(&CommandProcessor::reportPerformance, this));
     scheduleNextPerformanceReport();
 }
 
@@ -86,7 +87,7 @@ void CommandProcessor::ProcessCommand(const CommandMessage& command,
                 break;
             }
 
-            m_mapInstance->Insert(key, value, lockTout);
+            m_mapInstance.Insert(key, value, lockTout);
             result.code = ResultMessage::InsertSuccess;
             break;
         }
@@ -100,7 +101,7 @@ void CommandProcessor::ProcessCommand(const CommandMessage& command,
                 break;
             }
 
-            m_mapInstance->Update(key, value, lockTout);
+            m_mapInstance.Update(key, value, lockTout);
             result.code = ResultMessage::UpdateSuccess;
             break;
         }
@@ -114,7 +115,7 @@ void CommandProcessor::ProcessCommand(const CommandMessage& command,
             }
 
             std::string outValue;
-            m_mapInstance->Get(key, outValue, lockTout);
+            m_mapInstance.Get(key, outValue, lockTout);
             result.value.Set(outValue);
             result.code = ResultMessage::GetSuccess;
             break;
@@ -128,7 +129,7 @@ void CommandProcessor::ProcessCommand(const CommandMessage& command,
                 break;
             }
 
-            m_mapInstance->Delete(key, lockTout);
+            m_mapInstance.Delete(key, lockTout);
             result.code = ResultMessage::DeleteSuccess;
             break;
         }
@@ -140,9 +141,24 @@ void CommandProcessor::ProcessCommand(const CommandMessage& command,
         }
         }
     }
+    catch (const boost::interprocess::bad_alloc&)
+    {
+        m_logger.LogRecord("Probably there's lack of memory. Trying to grow segment...");
+        if (!m_mapInstance.Grow())
+        {
+            m_logger.LogRecord("Failed to grow mapped file! Further inserting is not available");
+        }
+        else
+        {
+            m_logger.LogRecord("Memory segment grown. Trying to restart command...");
+            m_strand.post(std::bind(&CommandProcessor::ProcessCommand, this,
+                                    command, callback));
+            return;
+        }
+    }
     catch (const std::exception& e)
     {
-        m_logger->LogRecord(std::string("Exception occured when performing operation on map: ") + e.what());
+        m_logger.LogRecord(std::string("Exception occured when performing operation on map: ") + e.what());
         switch (command.type)
         {
         case CommandMessage::INSERT:
@@ -180,7 +196,7 @@ void CommandProcessor::onReportTimerElapsed(const boost::system::error_code& ec)
 {
     if (ec)
     {
-        m_logger->LogRecord((boost::format("Timer error occured: %1%") % ec).str());
+        m_logger.LogRecord((boost::format("Timer error occured: %1%") % ec).str());
     }
     else
     {
@@ -192,13 +208,29 @@ void CommandProcessor::onReportTimerElapsed(const boost::system::error_code& ec)
 
 void CommandProcessor::reportPerformance()
 {
-    std::string message("================== PERFORMANCE REPORT ==================\n");
+    std::string message("\n================== PERFORMANCE REPORT ==================\n");
+    message += "\nSession statistics:\n";
     for (const auto& entry : m_performanceCounters)
     {
         auto& counter = entry.second;
         message += (boost::format("   %1%: %2%\n") % counter.m_name % counter.m_counter).str();
     }
-    m_logger->LogRecord(message);
+
+    message += "\nStorage statistics:\n";
+    const auto& mapStat = m_mapInstance.GetStat();
+    message += (boost::format("   Total memory (bytes) : %1%\n") % mapStat.m_size).str();
+    message += (boost::format("   Free memory (bytes) : %1%\n") % mapStat.m_free).str();
+    message += (boost::format("   Total records : %1%\n") % mapStat.m_numRecords).str();
+    message += "\n========================================================\n";
+    m_logger.LogRecord(message);
+    if (!m_mapInstance.Flush())
+    {
+        m_logger.LogRecord("Failed to flush map content on disk");
+    }
+    else
+    {
+        m_logger.LogRecord("Map content flushed to disk");
+    }
 }
 
 } // namespace kvdb

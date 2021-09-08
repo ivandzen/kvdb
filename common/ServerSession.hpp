@@ -23,9 +23,9 @@ struct ServerSessionContext
     using CloseCallback = std::function<void(const ServerSessionPtr&)>;
 
     boost::asio::io_context&        m_ioContext;
+    Logger&                         m_logger;
     boost::asio::ip::tcp::acceptor& m_acceptor;
-    CommandProcessor::Ptr           m_processor;
-    Logger::Ptr                     m_logger;
+    CommandProcessor&               m_processor;
     InitCallback                    m_initCallback;
     CloseCallback                   m_closeCallback;
 };

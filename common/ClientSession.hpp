@@ -19,9 +19,7 @@ struct ClientSessionContext
     using CloseCallback = std::function<void(void)>;
 
     boost::asio::io_context&    m_ioContext;
-    Logger::Ptr                 m_logger;
-    std::string                 m_hostname;
-    int                         m_port;
+    Logger&                     m_logger;
     ConnectCallback             m_connectCallback;
     CloseCallback               m_onCloseCallback;
 };
@@ -43,7 +41,7 @@ public:
 
     virtual ~ClientSession();
 
-    void Connect();
+    void Connect(const std::string& hostname, int port);
 
     void SendCommand(const CommandMessage& command,
                      const ResultCallback& callback);

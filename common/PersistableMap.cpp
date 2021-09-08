@@ -7,26 +7,33 @@ namespace kvdb
 {
 
 static const char scMainObjectName[] = "Root";
-static const std::size_t scDefaultMappedFileSize = 1024 * 1024 * 64;
+static const std::size_t scDefaultMappedFileSize = 1024 * 1024 * 5;
 
-PersistableMap::PersistableMap(const char* filePath)
+PersistableMap::PersistableMap(Logger& logger)
+    : m_logger(logger)
 {
-    if (std::filesystem::exists(filePath))
-    {
-        if (!std::filesystem::is_regular_file(filePath))
-        {
-            throw std::runtime_error("Given path is not a regular file");
-        }
+}
 
-        m_mappedFile = std::make_shared<MappedFile>(boost::interprocess::open_copy_on_write,
-                                                    filePath);
+PersistableMap::~PersistableMap()
+{
+    if (!m_mappedFile->flush())
+    {
+        m_logger.LogRecord("Failed to flush map content on disk");
     }
     else
     {
-        m_mappedFile = std::make_shared<MappedFile>(boost::interprocess::create_only,
-                                                    filePath,
-                                                    scDefaultMappedFileSize);
+        m_logger.LogRecord("Map content flushed on disk");
     }
+
+    m_logger.LogRecord("PersistableMap destroyed");
+}
+
+void PersistableMap::InitStorage(const std::string& filePath)
+{
+    m_filePath = filePath;
+    m_mappedFile = std::make_shared<MappedFile>(boost::interprocess::open_or_create,
+                                                m_filePath.c_str(),
+                                                scDefaultMappedFileSize);
 
     m_allocator = std::make_unique<Allocator<void>>(m_mappedFile->get_segment_manager());
 
@@ -34,9 +41,34 @@ PersistableMap::PersistableMap(const char* filePath)
     m_internalStorage = m_mappedFile->find_or_construct<InternalStorage>(scMainObjectName)(*m_allocator);
 }
 
-PersistableMap::~PersistableMap()
+bool PersistableMap::Flush()
 {
-    m_mappedFile->flush();
+    std::unique_lock lock(m_mutex);
+    return m_mappedFile->flush();
+}
+
+bool PersistableMap::Grow()
+{
+    std::unique_lock lock(m_mutex);
+    if (!m_mappedFile->flush())
+    {
+        return false;
+    }
+
+    // reset allocator and mapped file to be able to grow it
+    m_allocator.reset();
+    const auto newSize = m_mappedFile->get_segment_manager()->get_size() * 2;
+    m_mappedFile.reset();
+
+    // trying to grow mapped file and reinitialize allocator
+    if (!boost::interprocess::managed_mapped_file::grow(m_filePath.c_str(), newSize))
+    {
+        InitStorage(m_filePath);
+        return false;
+    }
+
+    InitStorage(m_filePath);
+    return true;
 }
 
 void PersistableMap::Insert(const std::string& key, const std::string& value, const Millis& lockTout)
@@ -112,6 +144,20 @@ void PersistableMap::Delete(const std::string& key, const Millis& lockTout)
     }
 
     index.erase(it);
+}
+
+PersistableMap::Stat PersistableMap::GetStat() const
+{
+    std::unique_lock lock(m_mutex);
+
+    Stat result =
+    {
+        m_mappedFile->get_segment_manager()->get_size(),
+        m_mappedFile->get_segment_manager()->get_free_memory(),
+        m_internalStorage->get<Entry::ByKey>().size()
+    };
+
+    return result;
 }
 
 }// namespace kvdb

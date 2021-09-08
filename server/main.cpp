@@ -15,7 +15,15 @@ namespace kvdb
 class ServerApp
 {
 public:
+    static const uint32_t scReportingIntervalSec = 60;
+
     ServerApp(int argc, char** argv)
+        : m_map(m_logger)
+        , m_commandProcessor(CommandProcessorContext {
+                             m_ioContext,
+                             m_logger,
+                             m_map,
+                             scReportingIntervalSec})
     {
         static constexpr char scArgPort[] = "port";
         static constexpr char scArgFile[] = "file";
@@ -36,8 +44,6 @@ public:
             core::get()->add_sink(sink);
         }
 
-        m_logger = std::make_shared<kvdb::Logger>();
-
         ///-----------------------------------------------------------------------------------------
         /// Configure application arguments
         using namespace boost::program_options;
@@ -57,25 +63,19 @@ public:
         }
         catch (boost::program_options::error& e)
         {
-            m_logger->LogRecord(std::string("Error while parse comand line arguments: ") + e.what());
+            m_logger.LogRecord(std::string("Error while parse comand line arguments: ") + e.what());
             std::this_thread::sleep_for(std::chrono::milliseconds(2000));
             exit(-1);
         }
 
         if (vm.count(scArgFile) == 0)
         {
-            m_logger->LogRecord("file is required");
+            m_logger.LogRecord("file is required");
             std::this_thread::sleep_for(std::chrono::milliseconds(2000));
             exit(-1);
         }
 
-        m_map = std::make_shared<PersistableMap>(vm[scArgFile].as<std::string>().c_str());
-        m_commandProcessor = std::make_shared<CommandProcessor>(CommandProcessorContext {
-                                                                    m_ioContext,
-                                                                    m_logger,
-                                                                    m_map,
-                                                                    60 // seconds
-                                                                });
+        m_map.InitStorage(vm[scArgFile].as<std::string>());
 
         {
             using namespace boost::asio::ip;
@@ -92,8 +92,6 @@ public:
 
     void Start()
     {
-        m_logger->LogRecord("Starting server...");
-
         try
         {
             boost::asio::signal_set signals(m_ioContext, SIGINT, SIGTERM);
@@ -101,14 +99,16 @@ public:
                                          std::placeholders::_1,
                                          std::placeholders::_2));
 
-            m_commandProcessor->Start();
+            m_commandProcessor.Start();
             m_server->Start();
             m_ioContext.run();
         }
         catch (std::exception& e)
         {
-            m_logger->LogRecord((boost::format("Exception: %1%") % e.what()).str());
+            m_logger.LogRecord((boost::format("Exception: %1%") % e.what()).str());
         }
+
+        m_logger.LogRecord("IO service stopped");
     }
 
 private:
@@ -116,25 +116,26 @@ private:
     {
         if (!error)
         {
-            m_logger->LogRecord((boost::format("Signal %1% occured") % signalNumber).str());
+            m_logger.LogRecord((boost::format("Signal %1% occured") % signalNumber).str());
             if (signalNumber == SIGINT || signalNumber == SIGTERM)
             {
-                m_logger->LogRecord("Terminating...");
+                m_logger.LogRecord("Terminating...");
                 m_ioContext.stop();
             }
 
             return;
         }
 
-        m_logger->LogRecord((boost::format("Error occured while waiting for system signal: %1%")
-                             % error.message()).str());
+        m_logger.LogRecord((boost::format("Error occured while waiting for system signal: %1%")
+                            % error.message()).str());
         exit(1);
     }
 
+    // all fields must be in the order of initialization
     boost::asio::io_context m_ioContext;
-    kvdb::Logger::Ptr       m_logger;
-    PersistableMap::Ptr     m_map;
-    CommandProcessor::Ptr   m_commandProcessor;
+    kvdb::Logger            m_logger;
+    PersistableMap          m_map;
+    CommandProcessor        m_commandProcessor;
     Server::Ptr             m_server;
 };
 

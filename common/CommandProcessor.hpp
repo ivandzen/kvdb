@@ -13,18 +13,16 @@ namespace kvdb
 struct CommandProcessorContext
 {
     boost::asio::io_context&    m_ioContext;        ///< asynschronous context
-    Logger::Ptr                 m_logger;
-    PersistableMap::Ptr         m_mapInstance;      ///< pointer to the instance of persistable map
+    Logger&                     m_logger;
+    PersistableMap&             m_mapInstance;      ///< reference to the instance of persistable map
     uint32_t                    m_reportIntervalSec;///< interval between two statistical reports (in seconds)
 };
 
 class CommandProcessor
         : private CommandProcessorContext
-        , public std::enable_shared_from_this<CommandProcessor>
 {
 public:
     using ResultCallback = std::function<void(const ResultMessage& result)>;
-    using Ptr = std::shared_ptr<CommandProcessor>;
 
     explicit CommandProcessor(const CommandProcessorContext& context);
 

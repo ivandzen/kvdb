@@ -12,6 +12,8 @@
 #include <boost/multi_index/member.hpp>
 #include <boost/interprocess/containers/string.hpp>
 
+#include "Logger.hpp"
+
 namespace kvdb
 {
 
@@ -22,33 +24,28 @@ namespace kvdb
 class PersistableMap
 {
 public:
-    using Ptr = std::shared_ptr<PersistableMap>;
     using SegmentManager = boost::interprocess::managed_mapped_file::segment_manager;
     using Millis = std::chrono::milliseconds;
 
     struct Stat
     {
-        SegmentManager::size_type m_size;
-        SegmentManager::size_type m_free;
+        SegmentManager::size_type   m_size;
+        SegmentManager::size_type   m_free;
+        std::size_t                 m_numRecords;
     };
 
-    PersistableMap(const char* filePath);
+    explicit PersistableMap(Logger& logger);
 
     virtual ~PersistableMap();
 
+    void InitStorage(const std::string& filePath);
+    bool Flush();
+    bool Grow();
     void Insert(const std::string& key, const std::string& value, const Millis& lockTout);
     void Update(const std::string& key, const std::string& value, const Millis& lockTout);
     void Get(const std::string& key, std::string& output, const Millis& lockTout) const;
     void Delete(const std::string& key, const Millis& lockTout);
-
-    Stat GetStat()
-    {
-        return Stat
-        {
-            m_mappedFile->get_segment_manager()->get_size(),
-            m_mappedFile->get_segment_manager()->get_free_memory()
-        };
-    }
+    Stat GetStat() const;
 
 private:
     template<typename Type>
@@ -110,6 +107,10 @@ private:
     using InternalStoragePtr = InternalStorage*;
     using InternalStorageAllocator = boost::multi_index::detail::rebind_alloc_for<Allocator<char>, PersistableMap>::type;
 
+    void initStorage();
+
+    Logger&                     m_logger;
+    std::string                 m_filePath;
     MappedFilePtr               m_mappedFile;
     AllocatorPtr                m_allocator;
     InternalStoragePtr          m_internalStorage;

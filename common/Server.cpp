@@ -13,6 +13,11 @@ Server::Server(const ServerContext& context)
     m_acceptor.listen(scMaxConnections);
 }
 
+Server::~Server()
+{
+    m_logger.LogRecord("Server destroyed");
+}
+
 void Server::Start()
 {
     initNewSession();
@@ -20,15 +25,14 @@ void Server::Start()
 
 void Server::initNewSession()
 {
-    const auto self = shared_from_this();
     ServerSession::Init(ServerSessionContext {
                             m_ioContext,
+                            m_logger,
                             m_acceptor,
                             m_processor,
-                            m_logger,
                             // protect m_sessions set from concurrent access by executing on strand
-                            m_strand.wrap(std::bind(&Server::onSessionInitialized, self, std::placeholders::_1)),
-                            m_strand.wrap(std::bind(&Server::onSessionClosed, self, std::placeholders::_1))
+                            m_strand.wrap(std::bind(&Server::onSessionInitialized, this, std::placeholders::_1)),
+                            m_strand.wrap(std::bind(&Server::onSessionClosed, this, std::placeholders::_1))
                         });
 }
 

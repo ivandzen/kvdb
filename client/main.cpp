@@ -36,8 +36,6 @@ public:
             core::get()->add_sink(sink);
         }
 
-        m_logger = std::make_shared<Logger>();
-
         ///-----------------------------------------------------------------------------------------
         /// Configure application arguments
         using namespace boost::program_options;
@@ -54,63 +52,60 @@ public:
         positional_options_description posDesc;
         posDesc.add(scArgCommand, 3);
 
-        variables_map vm;
         try
         {
             store(command_line_parser(argc, argv)
                         .options(desc)
                         .positional(posDesc)
                         .run(),
-                  vm);
-            notify(vm);
+                  m_varMap);
+            notify(m_varMap);
         }
         catch (boost::program_options::error& e)
         {
-            m_logger->LogRecord(std::string("Error while parse comand line arguments: ") + e.what());
+            m_logger.LogRecord(std::string("Error while parse comand line arguments: ") + e.what());
             std::this_thread::sleep_for(std::chrono::milliseconds(2000));
             exit(-1);
         }
 
-        if (vm.count(scArgHostname) == 0)
+        if (m_varMap.count(scArgHostname) == 0)
         {
-            m_logger->LogRecord("host is required");
+            m_logger.LogRecord("host is required");
             std::this_thread::sleep_for(std::chrono::milliseconds(2000));
             exit(-1);
         }
 
-        if (vm.count(scArgCommand) == 0)
+        if (m_varMap.count(scArgCommand) == 0)
         {
-            m_logger->LogRecord("command is required");
+            m_logger.LogRecord("command is required");
             std::this_thread::sleep_for(std::chrono::milliseconds(2000));
             exit(-1);
         }
 
-        const auto command = vm[scArgCommand].as<std::vector<std::string>>();
+        const auto command = m_varMap[scArgCommand].as<std::vector<std::string>>();
         if (!parseCommand(command, m_command))
         {
-            m_logger->LogRecord("Unable to parse command");
+            m_logger.LogRecord("Unable to parse command");
             std::this_thread::sleep_for(std::chrono::milliseconds(2000));
             exit(-1);
         }
 
         ///-----------------------------------------------------------------------------------------
         /// Initializing client session
-        ClientSessionContext sessionContext =
-        {
-            m_ioContext,
-            m_logger,
-            vm[scArgHostname].as<std::string>(),
-            vm[scArgPort].as<int>(),
-            std::bind(&ClientApp::onConnect, this, std::placeholders::_1),
-            std::bind(&ClientApp::onClose, this)
-        };
 
-        m_session = std::make_shared<ClientSession>(sessionContext);
+
+        m_session = std::make_shared<ClientSession>(ClientSessionContext {
+                                                        m_ioContext,
+                                                        m_logger,
+                                                        std::bind(&ClientApp::onConnect, this,
+                                                                  std::placeholders::_1),
+                                                        std::bind(&ClientApp::onClose, this)
+                                                    });
     }
 
     void Start()
     {
-        m_logger->LogRecord("Starting client...");
+        m_logger.LogRecord("Starting client...");
 
         try
         {
@@ -118,12 +113,13 @@ public:
             signals.async_wait(std::bind(&ClientApp::onSystemSignal, this,
                                          std::placeholders::_1,
                                          std::placeholders::_2));
-            m_session->Connect();
+            m_session->Connect(m_varMap[scArgHostname].as<std::string>(),
+                               m_varMap[scArgPort].as<int>());
             m_ioContext.run();
         }
         catch (std::exception& e)
         {
-            m_logger->LogRecord((boost::format("Exception: %1%") % e.what()).str());
+            m_logger.LogRecord((boost::format("Exception: %1%") % e.what()).str());
         }
     }
 
@@ -139,7 +135,7 @@ private:
         {
             if (command.size() != 3)
             {
-                m_logger->LogRecord("INSERT requires 2 arguments separated by space: INSERT <key> <value>");
+                m_logger.LogRecord("INSERT requires 2 arguments separated by space: INSERT <key> <value>");
                 return false;
             }
 
@@ -151,7 +147,7 @@ private:
         {
             if (command.size() != 3)
             {
-                m_logger->LogRecord("UPDATE requires 2 arguments separated by space: UPDATE <key> <value>");
+                m_logger.LogRecord("UPDATE requires 2 arguments separated by space: UPDATE <key> <value>");
                 return false;
             }
 
@@ -163,7 +159,7 @@ private:
         {
             if (command.size() != 2)
             {
-                m_logger->LogRecord("GET requires 1 argument: GET <key>");
+                m_logger.LogRecord("GET requires 1 argument: GET <key>");
                 return false;
             }
 
@@ -175,7 +171,7 @@ private:
         {
             if (command.size() != 2)
             {
-                m_logger->LogRecord("DELETE requires 1 argument: DELETE <key>");
+                m_logger.LogRecord("DELETE requires 1 argument: DELETE <key>");
                 return false;
             }
 
@@ -185,7 +181,7 @@ private:
         }
         else
         {
-            m_logger->LogRecord(std::string("Unknown operation : ") + operation);
+            m_logger.LogRecord(std::string("Unknown operation : ") + operation);
             return false;
         }
 
@@ -196,12 +192,12 @@ private:
     {
         if (!success)
         {
-            m_logger->LogRecord("Failed to connect to server. Exiting...");
+            m_logger.LogRecord("Failed to connect to server. Exiting...");
             m_ioContext.stop();
         }
         else
         {
-            m_logger->LogRecord("ClientSession connected!");
+            m_logger.LogRecord("ClientSession connected!");
             m_session->SendCommand(m_command,
                                    std::bind(&ClientApp::onResultReceived, this,
                                              std::placeholders::_1,
@@ -213,7 +209,7 @@ private:
     {
         if (!success)
         {
-            m_logger->LogRecord("Server failed to execute command");
+            m_logger.LogRecord("Server failed to execute command");
         }
         else if (!value.empty())
         {
@@ -225,7 +221,7 @@ private:
 
     void onClose()
     {
-        m_logger->LogRecord("Connection closed. Exiting...");
+        m_logger.LogRecord("Connection closed. Exiting...");
         m_ioContext.stop();
     }
 
@@ -233,23 +229,24 @@ private:
     {
         if (!error)
         {
-            m_logger->LogRecord((boost::format("Signal %1% occured") % signalNumber).str());
+            m_logger.LogRecord((boost::format("Signal %1% occured") % signalNumber).str());
             if (signalNumber == SIGINT || signalNumber == SIGTERM)
             {
-                m_logger->LogRecord("Terminating...");
+                m_logger.LogRecord("Terminating...");
                 m_ioContext.stop();
             }
 
             return;
         }
 
-        m_logger->LogRecord((boost::format("Error occured while waiting for system signal: %1%")
-                             % error.message()).str());
+        m_logger.LogRecord((boost::format("Error occured while waiting for system signal: %1%")
+                            % error.message()).str());
         exit(1);
     }
 
+    boost::program_options::variables_map   m_varMap;
     boost::asio::io_context m_ioContext;
-    Logger::Ptr             m_logger;
+    Logger                  m_logger;
     ClientSession::Ptr      m_session;
     CommandMessage          m_command;
 };
