@@ -33,8 +33,6 @@ public:
     void Start();
 
 private:
-    using WeakSelf = std::weak_ptr<CommandProcessor>;
-
     struct PerfCounter
     {
         std::string m_name;

@@ -31,7 +31,7 @@ struct ServerSessionContext
 };
 
 class ServerSession
-        : public ServerSessionContext
+        : private ServerSessionContext
         , public std::enable_shared_from_this<ServerSession>
 {
 public:
@@ -46,7 +46,6 @@ public:
     std::string Address() const;
 
 private:
-    using WeakSelf = std::weak_ptr<ServerSession>;
     using Sender = MessageSender<ResultMessage>;
     using Receiver = MessageReceiver<CommandMessage>;
 

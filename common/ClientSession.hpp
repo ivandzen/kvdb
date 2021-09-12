@@ -25,8 +25,7 @@ struct ClientSessionContext
 };
 
 class ClientSession
-        : public ClientSessionContext
-        , public std::enable_shared_from_this<ClientSession>
+        : private ClientSessionContext
 {
 public:
     using Ptr = std::shared_ptr<ClientSession>;

@@ -106,6 +106,7 @@ public:
         catch (std::exception& e)
         {
             m_logger.LogRecord((boost::format("Exception: %1%") % e.what()).str());
+            exit(-1);
         }
 
         m_logger.LogRecord("IO service stopped");
@@ -126,9 +127,8 @@ private:
             return;
         }
 
-        m_logger.LogRecord((boost::format("Error occured while waiting for system signal: %1%")
-                            % error.message()).str());
-        exit(1);
+        throw std::runtime_error((boost::format("Error occured while waiting for system signal: %1%")
+                                  % error.message()).str());
     }
 
     // all fields must be in the order of initialization

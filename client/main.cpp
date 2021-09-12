@@ -105,7 +105,8 @@ public:
 
     void Start()
     {
-        m_logger.LogRecord("Starting client...");
+        m_logger.LogRecord("=================================================\n"
+                           "Starting client...");
 
         try
         {
@@ -120,6 +121,7 @@ public:
         catch (std::exception& e)
         {
             m_logger.LogRecord((boost::format("Exception: %1%") % e.what()).str());
+            exit(-1);
         }
     }
 
@@ -192,8 +194,7 @@ private:
     {
         if (!success)
         {
-            m_logger.LogRecord("Failed to connect to server. Exiting...");
-            m_ioContext.stop();
+            throw std::runtime_error("Failed to connect to server. Exiting...");
         }
         else
         {
@@ -209,7 +210,7 @@ private:
     {
         if (!success)
         {
-            m_logger.LogRecord("Server failed to execute command");
+            throw std::runtime_error("Server failed to execute command");
         }
         else if (!value.empty())
         {
@@ -239,9 +240,8 @@ private:
             return;
         }
 
-        m_logger.LogRecord((boost::format("Error occured while waiting for system signal: %1%")
-                            % error.message()).str());
-        exit(1);
+        throw std::runtime_error((boost::format("Error occured while waiting for system signal: %1%")
+                                  % error.message()).str());
     }
 
     boost::program_options::variables_map   m_varMap;

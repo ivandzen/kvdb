@@ -25,6 +25,8 @@ void Server::Start()
 
 void Server::initNewSession()
 {
+    const ServerSessionContext::CloseCallback closeCallback
+            = m_strand.wrap(std::bind(&Server::onSessionClosed, this, std::placeholders::_1));
     ServerSession::Init(ServerSessionContext {
                             m_ioContext,
                             m_logger,
@@ -32,7 +34,7 @@ void Server::initNewSession()
                             m_processor,
                             // protect m_sessions set from concurrent access by executing on strand
                             m_strand.wrap(std::bind(&Server::onSessionInitialized, this, std::placeholders::_1)),
-                            m_strand.wrap(std::bind(&Server::onSessionClosed, this, std::placeholders::_1))
+                            closeCallback
                         });
 }
 

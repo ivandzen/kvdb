@@ -67,15 +67,17 @@ private:
 
     void onHeaderReceived(const boost::system::error_code& ec, const MessageHeader::Ptr& headerPtr)
     {
-        // connection may be closed
-        if (ec == boost::asio::error::eof || ec == boost::asio::error::broken_pipe)
+        // connection closed
+        if (ec == boost::asio::error::eof
+                || ec == boost::asio::error::broken_pipe
+                || ec == boost::asio::error::connection_reset)
         {
             this->m_closeCallback();
             return;
         }
         else if (ec)
         {
-            this->m_logger.LogRecord(ec.message());
+            this->m_logger.LogRecord(std::string("Failed to receive message header: ") + ec.message());
             startReceive();
             return;
         }
@@ -125,7 +127,9 @@ private:
         m_timer.cancel();
 
         // connection may be closed
-        if (ec == boost::asio::error::eof || ec == boost::asio::error::broken_pipe)
+        if (ec == boost::asio::error::eof
+                || ec == boost::asio::error::broken_pipe
+                || ec == boost::asio::error::connection_reset)
         {
             this->m_closeCallback();
             return;

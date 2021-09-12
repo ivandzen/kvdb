@@ -80,9 +80,18 @@ private:
     void onHeaderTransmitted(const boost::system::error_code& ec,
                              const HeaderPtr&)
     {
-        if (ec)
+        // connection closed
+        if (ec == boost::asio::error::eof
+                || ec == boost::asio::error::broken_pipe
+                || ec == boost::asio::error::connection_reset)
         {
-            m_logger.LogRecord(ec.message());
+            // no more transmission
+            m_messageQueue.clear();
+            return;
+        }
+        else if (ec)
+        {
+            m_logger.LogRecord(std::string("Failed to transmit header: ") + ec.message());
             m_currentMessage.reset();
             trySendNextMessage();
             return;
@@ -96,9 +105,18 @@ private:
 
     void onDataTransmitted(const boost::system::error_code& ec)
     {
-        if (ec)
+        // connection closed
+        if (ec == boost::asio::error::eof
+                || ec == boost::asio::error::broken_pipe
+                || ec == boost::asio::error::connection_reset)
         {
-            m_logger.LogRecord(ec.message());
+            // no more transmission
+            m_messageQueue.clear();
+            return;
+        }
+        else if (ec)
+        {
+            m_logger.LogRecord(std::string("Failed to transmit data: " ) + ec.message());
             m_currentMessage.reset();
             trySendNextMessage();
             return;
@@ -108,8 +126,8 @@ private:
         trySendNextMessage();
     }
 
-    std::deque<BufPtr>              m_messageQueue;
-    BufPtr                          m_currentMessage;
+    std::deque<BufPtr>  m_messageQueue;
+    BufPtr              m_currentMessage;
 };
 
 }

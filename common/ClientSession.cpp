@@ -27,33 +27,26 @@ void ClientSession::Connect(const std::string& hostname, int port)
     }
 
     boost::asio::ip::tcp::resolver::query query(hostname, std::to_string(port));
-    const WeakPtr weakSelf = shared_from_this();
-    m_resolver.async_resolve(query, [weakSelf](const boost::system::error_code& error,
-                                               boost::asio::ip::tcp::resolver::results_type results)
-    {
-        if (const auto self = weakSelf.lock())
-        {
-            self->onEPResolved(error, results);
-        }
-    });
+    m_resolver.async_resolve(query, std::bind(&ClientSession::onEPResolved, this,
+                                              std::placeholders::_1,
+                                              std::placeholders::_2));
 }
 
 void ClientSession::SendCommand(const CommandMessage& command,
                                 const ResultCallback& callback)
 {
-    const auto self = shared_from_this();
-    m_strand.post([self, command, callback]()
+    m_strand.post([this, command, callback]()
     {
-        if (self->m_resultCallbacks.count(command.id) != 0)
+        if (m_resultCallbacks.count(command.id) != 0)
         {
-            self->m_logger.LogRecord((boost::format("Command with id %1% is already in processing")
-                                     % command.id).str());
+            m_logger.LogRecord((boost::format("Command with id %1% is already in processing")
+                                % command.id).str());
             callback(false, std::string());
             return;
         }
 
-        self->m_resultCallbacks.insert({ command.id, callback });
-        self->m_sender->SendMessage(command);
+        m_resultCallbacks.insert({ command.id, callback });
+        m_sender->SendMessage(command);
     });
 }
 
@@ -62,26 +55,20 @@ void ClientSession::onEPResolved(const boost::system::error_code& ec,
 {
     if (ec)
     {
-        m_logger.LogRecord(ec.message());
+        m_logger.LogRecord(std::string("Failed to resolve EP: ") + ec.message());
         m_connectCallback(false);
         return;
     }
 
-    const WeakPtr weakSelf = shared_from_this();
-    m_socket.async_connect(*results, [weakSelf](const boost::system::error_code& ec)
-    {
-        if (const auto self = weakSelf.lock())
-        {
-            self->onSocketConnected(ec);
-        }
-    });
+    m_socket.async_connect(*results, std::bind(&ClientSession::onSocketConnected, this,
+                                               std::placeholders::_1));
 }
 
 void ClientSession::onSocketConnected(const boost::system::error_code& ec)
 {
     if (ec)
     {
-        m_logger.LogRecord(ec.message());
+        m_logger.LogRecord(std::string("Failed to connect to server: ") + ec.message());
         m_connectCallback(false);
         return;
     }
@@ -93,14 +80,13 @@ void ClientSession::onSocketConnected(const boost::system::error_code& ec)
                        m_socket
                    });
 
-    const auto self = shared_from_this();
     m_receiver = std::make_shared<Receiver>(
                      Receiver::Context {
                          m_ioContext,
                          m_strand,
                          m_socket,
                          m_logger,
-                         m_strand.wrap(std::bind(&ClientSession::onResultReceived, self,
+                         m_strand.wrap(std::bind(&ClientSession::onResultReceived, this,
                                                  std::placeholders::_1)),
                          m_onCloseCallback,
                          scReceiveDataTOutMs
