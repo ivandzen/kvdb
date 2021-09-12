@@ -5,8 +5,8 @@
 #include <boost/core/null_deleter.hpp>
 #include <boost/format.hpp>
 
-#include "../common/Logger.hpp"
-#include "../common/Server.hpp"
+#include "../lib/Logger.hpp"
+#include "../lib/Server.hpp"
 
 
 namespace kvdb

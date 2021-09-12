@@ -7,7 +7,7 @@
 #include <boost/log/sinks.hpp>
 #include <boost/core/null_deleter.hpp>
 
-#include "../common/ClientSession.hpp"
+#include "../lib/ClientSession.hpp"
 
 namespace kvdb
 {

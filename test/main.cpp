@@ -3,8 +3,8 @@
 
 #include <boost/asio.hpp>
 
-#include "../common/Protocol.hpp"
-#include "../common/Serialization.hpp"
+#include "../lib/Protocol.hpp"
+#include "../lib/Serialization.hpp"
 
 
 void testCommandMessageDeSerialize()
