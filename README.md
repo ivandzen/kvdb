@@ -72,8 +72,8 @@ positional argument (command):
 
 To run KVDB server using docker launch next commands:
 
-   > cd <path_to_kvdb>/docker
-   > docker-compose up -d server
+      > cd <path_to_kvdb>/docker
+      > docker-compose up -d server
    
 This command will run kvdb_server in docker environment and detach from this process. Server will listening on localhost:5001
 
