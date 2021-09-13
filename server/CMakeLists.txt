@@ -10,7 +10,7 @@ add_dependencies(${_server_target}
    kvdb)
 
 target_link_libraries(${_server_target}
-   "${CMAKE_BINARY_DIR}/common/libkvdb.a"
+   "${CMAKE_BINARY_DIR}/lib/libkvdb.a"
    ${Boost_THREAD_LIBRARY}
    ${Boost_SYSTEM_LIBRARY}
    ${Boost_LOG_LIBRARY}
