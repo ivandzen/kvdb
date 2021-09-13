@@ -7,12 +7,13 @@
 
 #include "../lib/Logger.hpp"
 #include "../lib/Server.hpp"
-
+#include "../lib/Application.hpp"
 
 namespace kvdb
 {
 
 class ServerApp
+        : public Application
 {
 public:
     static const uint32_t scReportingIntervalSec = 60;
@@ -90,50 +91,17 @@ public:
         }
     }
 
-    void Start()
+    void Run()
     {
-        try
-        {
-            boost::asio::signal_set signals(m_ioContext, SIGINT, SIGTERM);
-            signals.async_wait(std::bind(&ServerApp::onSystemSignal, this,
-                                         std::placeholders::_1,
-                                         std::placeholders::_2));
-
-            m_commandProcessor.Start();
-            m_server->Start();
-            m_ioContext.run();
-        }
-        catch (std::exception& e)
-        {
-            m_logger.LogRecord((boost::format("Exception: %1%") % e.what()).str());
-            exit(-1);
-        }
-
-        m_logger.LogRecord("IO service stopped");
+        const auto numThreads = std::thread::hardware_concurrency();
+        m_logger.LogRecord(std::string("Starting KVDB Server. Num threads : ") + std::to_string(numThreads));
+        m_commandProcessor.Start();
+        m_server->Start();
+        Application::Run(numThreads);
     }
 
 private:
-    void onSystemSignal(const boost::system::error_code& error, int signalNumber)
-    {
-        if (!error)
-        {
-            m_logger.LogRecord((boost::format("Signal %1% occured") % signalNumber).str());
-            if (signalNumber == SIGINT || signalNumber == SIGTERM)
-            {
-                m_logger.LogRecord("Terminating...");
-                m_ioContext.stop();
-            }
-
-            return;
-        }
-
-        throw std::runtime_error((boost::format("Error occured while waiting for system signal: %1%")
-                                  % error.message()).str());
-    }
-
     // all fields must be in the order of initialization
-    boost::asio::io_context m_ioContext;
-    kvdb::Logger            m_logger;
     PersistableMap          m_map;
     CommandProcessor        m_commandProcessor;
     Server::Ptr             m_server;
@@ -144,6 +112,6 @@ private:
 int main(int argc, char** argv)
 {
     kvdb::ServerApp app(argc, argv);
-    app.Start();
+    app.Run();
     return 0;
 }

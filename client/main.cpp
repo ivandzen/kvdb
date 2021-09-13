@@ -8,11 +8,13 @@
 #include <boost/core/null_deleter.hpp>
 
 #include "../lib/ClientSession.hpp"
+#include "../lib/Application.hpp"
 
 namespace kvdb
 {
 
 class ClientApp
+        : public Application
 {
 public:
     static constexpr char scArgHostname[] = "hostname";
@@ -103,26 +105,14 @@ public:
                                                     });
     }
 
-    void Start()
+    void Run()
     {
         m_logger.LogRecord("=================================================\n"
                            "Starting client...");
 
-        try
-        {
-            boost::asio::signal_set signals(m_ioContext, SIGINT, SIGTERM);
-            signals.async_wait(std::bind(&ClientApp::onSystemSignal, this,
-                                         std::placeholders::_1,
-                                         std::placeholders::_2));
-            m_session->Connect(m_varMap[scArgHostname].as<std::string>(),
-                               m_varMap[scArgPort].as<int>());
-            m_ioContext.run();
-        }
-        catch (std::exception& e)
-        {
-            m_logger.LogRecord((boost::format("Exception: %1%") % e.what()).str());
-            exit(-1);
-        }
+        m_session->Connect(m_varMap[scArgHostname].as<std::string>(),
+                           m_varMap[scArgPort].as<int>());
+        Application::Run(1);
     }
 
 private:
@@ -226,27 +216,7 @@ private:
         m_ioContext.stop();
     }
 
-    void onSystemSignal(const boost::system::error_code& error, int signalNumber)
-    {
-        if (!error)
-        {
-            m_logger.LogRecord((boost::format("Signal %1% occured") % signalNumber).str());
-            if (signalNumber == SIGINT || signalNumber == SIGTERM)
-            {
-                m_logger.LogRecord("Terminating...");
-                m_ioContext.stop();
-            }
-
-            return;
-        }
-
-        throw std::runtime_error((boost::format("Error occured while waiting for system signal: %1%")
-                                  % error.message()).str());
-    }
-
     boost::program_options::variables_map   m_varMap;
-    boost::asio::io_context m_ioContext;
-    Logger                  m_logger;
     ClientSession::Ptr      m_session;
     CommandMessage          m_command;
 };
@@ -256,5 +226,5 @@ private:
 int main(int argc, char** argv)
 {
     kvdb::ClientApp app(argc, argv);
-    app.Start();
+    app.Run();
 }
