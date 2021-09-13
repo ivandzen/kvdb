@@ -67,6 +67,12 @@ positional argument (command):
        **Note**: Key and value strings MUST NOT contain \0 symbol. Otherwise, it will cause wrong behaviour in string serialization-deserialization and, therefore string data corruption.
        
        INSERT and UPDATE command accepts both Key and Value arguments, GET and UPDATE commands only accepts Key argument
+       Examples of usage:
+       
+       > ./kvdb_cli --hostname=localhost --port=5001 INSERT "Some Key" "Some Value"
+       > ./kvdb_cli --hostname=localhost --port=5001 UPDATE "Some Key" "Some Other Value"
+       > ./kvdb_cli --hostname=localhost --port=5001 GET "Some Key"
+       > ./kvdb_cli --hostname=localhost --port=5001 DELETE "Some Key"
        
 ### Running KVDB server in docker:
 
@@ -75,7 +81,7 @@ To run KVDB server using docker launch next commands:
       > cd <path_to_kvdb>/docker
       > docker-compose up -d server
    
-This command will run kvdb_server in docker environment and detach from this process. Server will listening on localhost:5001
+This command will run kvdb_server in docker environment and detach terminal from this process. Server will listening on localhost:5001
 
 ### Test
 
