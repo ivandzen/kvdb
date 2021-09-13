@@ -6,6 +6,8 @@
 namespace kvdb
 {
 
+/// @brief special control struct preceeding every chunk of data when communicatin over network
+/// contains 'magic' number and length of data that will follow right after header
 struct MessageHeader
 {
     using Ptr = std::shared_ptr<MessageHeader>;
@@ -34,6 +36,7 @@ struct MessageHeader
 static const uint32_t scReceiveDataTOutMs = 1000;
 static const std::size_t scMessageHeaderSize = sizeof(MessageHeader);
 
+/// @brief helper class implementing length limitations of strings
 class LimitedString
 {
 public:

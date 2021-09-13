@@ -27,6 +27,8 @@ struct MessageReceiverContext
     uint32_t                            m_dataToutMs = 1000; // will wait for data after header maximum 1 second
 };
 
+/// @brief continuously receives messages of type MessageType through socket
+/// and evaluates callback when message received
 template<typename MessageType>
 class MessageReceiver
         : private MessageReceiverContext<MessageType>

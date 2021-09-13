@@ -30,6 +30,7 @@ struct ServerSessionContext
     CloseCallback                   m_closeCallback;
 };
 
+/// @brief manages connection with one client
 class ServerSession
         : private ServerSessionContext
         , public std::enable_shared_from_this<ServerSession>

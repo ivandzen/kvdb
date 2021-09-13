@@ -21,6 +21,7 @@ struct MessageSenderContext
     boost::asio::ip::tcp::socket&       m_socket; ///< reference to socket used to transmit data
 };
 
+/// @brief sends messages of type MessageType
 template<typename MessageType>
 class MessageSender
         : public MessageSenderContext

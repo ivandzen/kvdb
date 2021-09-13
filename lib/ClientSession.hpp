@@ -24,6 +24,7 @@ struct ClientSessionContext
     CloseCallback               m_onCloseCallback;
 };
 
+/// @brief manages client connection
 class ClientSession
         : private ClientSessionContext
 {

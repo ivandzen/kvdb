@@ -22,6 +22,8 @@ struct ServerContext
 
 static const uint32_t scMaxConnections = 100;
 
+/// @brief KVDB server class
+/// continuously accepts client connections and executes commands received from clients
 class Server
         : public ServerContext
 {

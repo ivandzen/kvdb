@@ -18,6 +18,8 @@ struct CommandProcessorContext
     uint32_t                    m_reportIntervalSec;///< interval between two statistical reports (in seconds)
 };
 
+/// @brief Parses network messages, executes corresponding
+/// operations on map and prepares result messages
 class CommandProcessor
         : private CommandProcessorContext
 {

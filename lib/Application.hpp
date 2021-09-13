@@ -7,6 +7,8 @@
 namespace kvdb
 {
 
+/// @brief common base class for applications
+/// manages asio context
 class Application
 {
 public:
