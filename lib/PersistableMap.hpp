@@ -105,7 +105,6 @@ private:
             Allocator<Entry>>;
 
     using InternalStoragePtr = InternalStorage*;
-    using InternalStorageAllocator = boost::multi_index::detail::rebind_alloc_for<Allocator<char>, PersistableMap>::type;
 
     void initStorage();
 
