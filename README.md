@@ -1,5 +1,6 @@
 # kvdb
 Simple key-value storage.
+Implemented for experimental and educational purposes.
 
 ## Building
 
